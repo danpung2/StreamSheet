@@ -80,7 +80,14 @@ class SxssfExcelExporter : ExcelExporter {
                 }
 
                 dataSequence.forEach { entity ->
-                    // NOTE: 최대 행 추출 제한 확인
+                    // NOTE: 엑셀 하드 limit (1,048,576행) 체크
+                    // Excel hard limit check (1,048,576 rows). Last index is 1,048,575.
+                    if (rowNum >= 1_048_576) {
+                        logger.error("Excel hard limit reached (1,048,576 rows). Halting export to prevent failure.")
+                        return@forEach
+                    }
+
+                    // NOTE: 사용자 설정 최대 행 추출 제한 확인
                     if (config.maxRows != null && (rowNum - 1) >= config.maxRows) {
                         logger.warn("Maximum row limit reached: {}. Halting export.", config.maxRows)
                         return@forEach
