@@ -3,6 +3,7 @@ package com.streamsheet.jpa
 import com.streamsheet.core.datasource.StreamingDataSource
 import jakarta.persistence.EntityManager
 import java.util.stream.Stream
+import java.util.Collections
 
 /**
  * JPA 엔티티 기반 스트리밍 데이터 소스
@@ -19,13 +20,14 @@ class JpaStreamingDataSource<T : Any>(
     private val detachEntities: Boolean = true
 ) : StreamingDataSource<T> {
 
-    private val activeStreams = mutableListOf<Stream<T>>()
+    private val activeStreams = Collections.synchronizedList(mutableListOf<Stream<T>>())
 
     override val sourceName: String
         get() = "JPA:${this::class.simpleName}"
 
     override fun stream(): Sequence<T> {
         val javaStream = streamProvider.invoke()
+        javaStream.onClose { activeStreams.remove(javaStream) }
         activeStreams.add(javaStream)
 
         return javaStream.iterator().asSequence().map { entity ->

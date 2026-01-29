@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import java.util.stream.Stream
+import java.util.Collections
 
 /**
  * JDBC ResultSet 기반 스트리밍 데이터 소스
@@ -18,7 +19,7 @@ class JdbcStreamingDataSource<T>(
     fetchSize: Int? = null
 ) : StreamingDataSource<T> {
 
-    private val activeStreams = mutableListOf<Stream<T>>()
+    private val activeStreams = Collections.synchronizedList(mutableListOf<Stream<T>>())
     
     // NOTE: 공유 JdbcTemplate의 설정을 건드리지 않기 위해 
     // fetchSize가 지정된 경우 로컬 래퍼를 생성하여 사용합니다. (Thread-safe)
@@ -43,7 +44,9 @@ class JdbcStreamingDataSource<T>(
             targetJdbcTemplate.queryForStream(sql, rowMapper)
         }
         
+        javaStream.onClose { activeStreams.remove(javaStream) }
         activeStreams.add(javaStream)
+        
         return javaStream.iterator().asSequence()
     }
 
