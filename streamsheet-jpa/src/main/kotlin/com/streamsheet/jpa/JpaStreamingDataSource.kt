@@ -30,13 +30,25 @@ class JpaStreamingDataSource<T : Any>(
         javaStream.onClose { activeStreams.remove(javaStream) }
         activeStreams.add(javaStream)
 
-        return javaStream.iterator().asSequence().map { entity ->
-            if (detachEntities) {
-                // NOTE: 영속성 컨텍스트에서 엔티티를 분리하여 메모리 누수 방지
-                // This prevents memory issues by detaching processed entities from the persistence context.
-                entityManager.detach(entity)
+        return Sequence {
+            val iterator = javaStream.iterator()
+            object : Iterator<T> {
+                override fun hasNext(): Boolean {
+                    val hasNext = iterator.hasNext()
+                    if (!hasNext) {
+                        javaStream.close()
+                    }
+                    return hasNext
+                }
+
+                override fun next(): T {
+                    val entity = iterator.next()
+                    if (detachEntities) {
+                        entityManager.detach(entity)
+                    }
+                    return entity
+                }
             }
-            entity
         }
     }
 

@@ -44,10 +44,25 @@ class JdbcStreamingDataSource<T>(
             targetJdbcTemplate.queryForStream(sql, rowMapper)
         }
         
+        // 리소스 누수 방지를 위한 핸들러
         javaStream.onClose { activeStreams.remove(javaStream) }
         activeStreams.add(javaStream)
         
-        return javaStream.iterator().asSequence()
+        // Sequence가 소진될 때 자동으로 Stream을 닫도록 구성
+        return Sequence {
+            val iterator = javaStream.iterator()
+            object : Iterator<T> {
+                override fun hasNext(): Boolean {
+                    val hasNext = iterator.hasNext()
+                    if (!hasNext) {
+                        javaStream.close()
+                    }
+                    return hasNext
+                }
+
+                override fun next(): T = iterator.next()
+            }
+        }
     }
 
     override fun close() {

@@ -31,10 +31,7 @@ class MongoStreamingDataSource<S : Any, T : Any>(
             .matching(query)
             .stream()
             
-        javaStream.onClose { activeStreams.remove(javaStream) }
-        activeStreams.add(javaStream)
-        
-        return javaStream.iterator().asSequence()
+        return wrapStream(javaStream)
     }
 
     override fun stream(filter: Map<String, Any>): Sequence<T> {
@@ -51,10 +48,27 @@ class MongoStreamingDataSource<S : Any, T : Any>(
             .matching(compositeQuery)
             .stream()
             
+        return wrapStream(javaStream)
+    }
+
+    private fun wrapStream(javaStream: Stream<T>): Sequence<T> {
         javaStream.onClose { activeStreams.remove(javaStream) }
         activeStreams.add(javaStream)
         
-        return javaStream.iterator().asSequence()
+        return Sequence {
+            val iterator = javaStream.iterator()
+            object : Iterator<T> {
+                override fun hasNext(): Boolean {
+                    val hasNext = iterator.hasNext()
+                    if (!hasNext) {
+                        javaStream.close()
+                    }
+                    return hasNext
+                }
+
+                override fun next(): T = iterator.next()
+            }
+        }
     }
 
     override fun close() {

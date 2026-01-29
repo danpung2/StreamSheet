@@ -183,7 +183,8 @@ class MongoStreamingDataSourceTest {
         val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
 
         // When
-        dataSource.stream().toList()
+        // 시퀀스를 생성만 하고 소비하지 않음 (Iterator를 가져오기만 함)
+        val iterator = dataSource.stream().iterator()
         
         val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
         field.isAccessible = true
@@ -193,7 +194,7 @@ class MongoStreamingDataSourceTest {
         dataSource.close()
 
         // Then
-        verify(mockStream1, times(1)).close()
+        verify(mockStream1, atLeastOnce()).close()
         assertEquals(0, activeStreams.size)
     }
 }

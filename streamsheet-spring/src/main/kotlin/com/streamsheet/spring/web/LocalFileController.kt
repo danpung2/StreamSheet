@@ -21,8 +21,20 @@ class LocalFileController(
 
     @GetMapping("\${streamsheet.storage.local.endpoint:/api/streamsheet/download}/{fileName}")
     fun download(@PathVariable fileName: String): ResponseEntity<Resource> {
-        val baseDir = Path.of(properties.storage.local.path)
-        val file = baseDir.resolve(fileName)
+        // NOTE: Path Traversal 방지를 위한 파일명 검증
+        // Validate fileName to prevent path traversal attacks
+        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+            return ResponseEntity.badRequest().build()
+        }
+
+        val baseDir = Path.of(properties.storage.local.path).toAbsolutePath().normalize()
+        val file = baseDir.resolve(fileName).normalize()
+
+        // 결과 경로가 baseDir 하위에 있는지 최종 확인
+        // Double-check that the resolved path is within the base directory
+        if (!file.startsWith(baseDir)) {
+            return ResponseEntity.status(403).build()
+        }
 
         if (!file.exists()) {
             return ResponseEntity.notFound().build()

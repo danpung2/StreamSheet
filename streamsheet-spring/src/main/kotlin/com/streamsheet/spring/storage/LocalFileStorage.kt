@@ -27,7 +27,17 @@ class LocalFileStorage(
     }
 
     override fun save(fileName: String, inputStream: InputStream, contentType: String, contentLength: Long): URI {
-        val targetPath = baseDir.resolve(fileName)
+        // Path Traversal 검증
+        require(!fileName.contains("..") && !fileName.contains("/") && !fileName.contains("\\")) {
+            "Invalid file name: $fileName"
+        }
+
+        val targetPath = baseDir.resolve(fileName).normalize()
+        
+        if (!targetPath.startsWith(baseDir.normalize())) {
+            throw IllegalArgumentException("Target path is outside of base directory")
+        }
+
         Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING)
         logger.info("File saved locally: {}", targetPath.absolutePathString())
         
