@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation platform('org.springframework.boot:spring-boot-dependencies:3.2.2')
+    implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.2')
 
     implementation 'org.jetbrains.kotlin:kotlin-reflect'
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
