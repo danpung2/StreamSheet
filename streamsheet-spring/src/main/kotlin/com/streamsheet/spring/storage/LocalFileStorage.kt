@@ -16,7 +16,8 @@ import kotlin.io.path.absolutePathString
  * Used for storing temporary files in development or single-server environments.
  */
 class LocalFileStorage(
-    private val baseDir: Path
+    private val baseDir: Path,
+    private val baseUrl: String
 ) : FileStorage {
 
     private val logger = LoggerFactory.getLogger(LocalFileStorage::class.java)
@@ -25,11 +26,14 @@ class LocalFileStorage(
         Files.createDirectories(baseDir)
     }
 
-    override fun save(fileName: String, inputStream: InputStream, contentType: String): URI {
+    override fun save(fileName: String, inputStream: InputStream, contentType: String, contentLength: Long): URI {
         val targetPath = baseDir.resolve(fileName)
         Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING)
         logger.info("File saved locally: {}", targetPath.absolutePathString())
-        return targetPath.toUri()
+        
+        // baseUrl이 / 로 끝나지 않으면 / 추가
+        val safeBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        return URI.create("$safeBaseUrl$fileName")
     }
 
     override fun delete(fileUri: URI) {

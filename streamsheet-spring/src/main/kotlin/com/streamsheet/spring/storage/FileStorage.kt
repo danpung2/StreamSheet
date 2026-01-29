@@ -18,9 +18,10 @@ interface FileStorage {
      * @param fileName 저장할 파일 이름 / File name to save
      * @param inputStream 파일 내용 스트림 / File content stream
      * @param contentType 컨텐츠 타입 (MIME) / Content type (MIME)
+     * @param contentLength 파일 크기 (바이트) / File size in bytes
      * @return 저장된 파일에 접근 가능한 URI (또는 키) / Accessible URI (or key) of the saved file
      */
-    fun save(fileName: String, inputStream: InputStream, contentType: String): URI
+    fun save(fileName: String, inputStream: InputStream, contentType: String, contentLength: Long): URI
 
     /**
      * 파일 삭제

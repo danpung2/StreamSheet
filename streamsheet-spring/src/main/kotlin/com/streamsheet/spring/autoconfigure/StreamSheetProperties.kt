@@ -3,6 +3,7 @@ package com.streamsheet.spring.autoconfigure
 import com.streamsheet.core.config.ExcelExportConfig
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue
+import org.springframework.boot.context.properties.NestedConfigurationProperty
 
 /**
  * StreamSheet 설정 프로퍼티
@@ -59,7 +60,18 @@ data class StreamSheetProperties(
      * 최대 행 추출 제한 (기본값: null - 무제한)
      * Maximum row extraction limit (default: null - unlimited)
      */
-    val maxRows: Int? = null
+    /**
+     * 최대 행 추출 제한 (기본값: null - 무제한)
+     * Maximum row extraction limit (default: null - unlimited)
+     */
+    val maxRows: Int? = null,
+
+    /**
+     * 스토리지 설정
+     * Storage configuration
+     */
+    @NestedConfigurationProperty
+    val storage: StreamSheetStorageProperties = StreamSheetStorageProperties()
 ) {
     /**
      * ExcelExportConfig 객체로 변환

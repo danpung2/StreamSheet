@@ -34,5 +34,19 @@ subprojects {
     // JUnit 5
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
+        finalizedBy jacocoTestReport
+    }
+
+    apply plugin: 'jacoco'
+    jacoco {
+        toolVersion = "0.8.11"
+    }
+
+    jacocoTestReport {
+        reports {
+            xml.required = true
+            html.required = true
+        }
+        dependsOn test
     }
 }

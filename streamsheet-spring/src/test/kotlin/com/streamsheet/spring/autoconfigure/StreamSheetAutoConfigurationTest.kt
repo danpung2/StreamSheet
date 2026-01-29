@@ -50,4 +50,35 @@ class StreamSheetAutoConfigurationTest {
                 assertThat(bean.createJob()).isEqualTo("custom")
             }
     }
+
+    @Test
+    @DisplayName("streamsheet.storage.type=S3 설정 시 S3 관련 Bean들이 등록되어야 한다")
+    fun `should register S3 beans when storage type is S3`() {
+        contextRunner
+            .withPropertyValues(
+                "streamsheet.storage.type=S3",
+                "streamsheet.storage.s3.bucket=test-bucket",
+                "streamsheet.storage.s3.region=ap-northeast-2",
+                "streamsheet.storage.s3.access-key=test",
+                "streamsheet.storage.s3.secret-key=test"
+            )
+            .run { context ->
+                assertThat(context).hasSingleBean(com.streamsheet.spring.storage.S3FileStorage::class.java)
+                assertThat(context).hasSingleBean(software.amazon.awssdk.services.s3.S3Client::class.java)
+            }
+    }
+
+    @Test
+    @DisplayName("streamsheet.storage.type=GCS 설정 시 GCS 관련 Bean들이 등록되어야 한다")
+    fun `should register GCS beans when storage type is GCS`() {
+        contextRunner
+            .withPropertyValues(
+                "streamsheet.storage.type=GCS",
+                "streamsheet.storage.gcs.bucket=test-bucket"
+            )
+            .run { context ->
+                assertThat(context).hasSingleBean(com.streamsheet.spring.storage.GcsFileStorage::class.java)
+                assertThat(context).hasSingleBean(com.google.cloud.storage.Storage::class.java)
+            }
+    }
 }

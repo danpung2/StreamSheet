@@ -40,6 +40,9 @@ class AsyncExportServiceTest {
     @Mock
     private lateinit var config: ExcelExportConfig
 
+    @Mock
+    private lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
+
     @InjectMocks
     private lateinit var asyncExportService: AsyncExportService
 
@@ -60,6 +63,7 @@ class AsyncExportServiceTest {
         `when`(fileStorage.save(
             any(), 
             any(), 
+            any(),
             any())
         ).thenReturn(URI.create("s3://bucket/file.xlsx"))
 
@@ -73,8 +77,9 @@ class AsyncExportServiceTest {
         verify(jobManager).createJob()
         verify(jobManager).updateStatus(eq(jobId), eq(JobStatus.PROCESSING),  isNull(), isNull())
         verify(excelExporter).export(eq(schema), eq(dataSource), any(), eq(config))
-        verify(fileStorage).save(any(), any(), any())
+        verify(fileStorage).save(any(), any(), any(), any())
         verify(jobManager).updateStatus(eq(jobId), eq(JobStatus.COMPLETED), any(), isNull())
+        verify(eventPublisher).publishEvent(any<ExportCompletedEvent>())
     }
 
     @Test

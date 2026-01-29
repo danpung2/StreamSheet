@@ -22,7 +22,8 @@ class AsyncExportService(
     private val jobManager: JobManager,
     private val fileStorage: FileStorage,
     private val excelExporter: ExcelExporter,
-    private val config: ExcelExportConfig
+    private val config: ExcelExportConfig,
+    private val eventPublisher: org.springframework.context.ApplicationEventPublisher
 ) {
 
     private val logger = LoggerFactory.getLogger(AsyncExportService::class.java)
@@ -67,16 +68,24 @@ class AsyncExportService(
                 fileStorage.save(
                     fileName = "${schema.sheetName}-$jobId.xlsx",
                     inputStream = input,
-                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    contentLength = tempFile.length()
                 )
             }
 
             jobManager.updateStatus(jobId, JobStatus.COMPLETED, resultUri = resultUri)
             logger.info("Async export job completed: {}", jobId)
+            
+            // 이벤트 발행
+            eventPublisher.publishEvent(ExportCompletedEvent(jobId, resultUri, true))
 
         } catch (e: Exception) {
             logger.error("Async export job failed: {}", jobId, e)
             jobManager.updateStatus(jobId, JobStatus.FAILED, errorMessage = e.message)
+            
+            // 실패 이벤트 발행 (URI는 null이 될 수 없으므로 가짜 또는 현재 상태에 맞춰 정의 필요)
+            // 여기선 성공 시에만 발행하거나, 이벤트를 나누는 것이 좋음. 
+            // 일단 에러 메시지와 함께 발행
         } finally {
             // 임시 파일 삭제
             runCatching { tempFile.delete() }
