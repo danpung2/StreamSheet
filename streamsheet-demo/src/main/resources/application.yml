@@ -14,6 +14,7 @@ streamsheet:
     local:
       path: build/exports
       base-url: http://localhost:8080/api/streamsheet/download
+  retention-hours: 1
 
 logging:
   level:
