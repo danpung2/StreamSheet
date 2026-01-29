@@ -1,0 +1,36 @@
+streamsheet:
+  excel:
+    # NOTE: SXSSF 메모리 관리 및 스타일링 옵션을 정의합니다.
+    # Defines SXSSF memory management and styling options.
+    export:
+      # NOTE: 메모리에 유지할 최대 행 수. 이 수를 초과하면 디스크로 플러시됩니다.
+      # Maximum rows to keep in memory. Rows exceeding this are flushed to disk.
+      row-access-window-size: 100
+
+      # NOTE: 주기적 플러시 트리거 행 수. 이 수마다 명시적으로 플러시하여 메모리를 해제합니다.
+      # Rows per flush trigger. Explicitly flush at this interval to release memory.
+      flush-batch-size: 1000
+
+      # NOTE: 임시 파일 압축 여부. true로 설정하면 디스크 사용량이 줄어들지만 CPU 사용량이 증가합니다.
+      # Whether to compress temp files. Setting to true reduces disk usage but increases CPU usage.
+      compress-temp-files: true
+
+      # NOTE: 헤더 스타일 적용 여부
+      # Whether to apply header styling
+      apply-header-style: true
+
+      # NOTE: 데이터 셀 테두리 적용 여부
+      # Whether to apply data cell borders
+      apply-data-borders: true
+
+      # NOTE: 엑셀 수식 인젝션 방지 여부. true인 경우 '=', '+', '-', '@'로 시작하는 데이터 앞에 싱글 쿼트(')를 붙입니다.
+      # Whether to prevent Excel formula injection. If true, prepends a single quote (') to data starting with '=', '+', '-', '@'.
+      prevent-formula-injection: true
+
+      # NOTE: 성능 지표 로깅 여부
+      # Whether to enable metrics logging
+      enable-metrics: false
+
+      # NOTE: 최대 행 추출 제한. null이면 제한이 없으며, 설정 시 해당 행 수를 초과하면 추출이 중단됩니다.
+      # Maximum row extraction limit. If null, no limit. If set, extraction stops when exceeded.
+      max-rows: null
