@@ -8,6 +8,7 @@ import org.apache.poi.ss.usermodel.CellStyle
 import org.apache.poi.ss.usermodel.FillPatternType
 import org.apache.poi.ss.usermodel.HorizontalAlignment
 import org.apache.poi.ss.usermodel.IndexedColors
+import org.apache.poi.ss.util.WorkbookUtil
 import org.apache.poi.xssf.streaming.SXSSFSheet
 import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.slf4j.LoggerFactory
@@ -52,7 +53,7 @@ class SxssfExcelExporter : ExcelExporter {
 
             try {
                 // NOTE: 시트 이름 안전화 (엑셀 금지 문자 및 길이 제한 처리)
-                val safeSheetName = org.apache.poi.ss.util.WorkbookUtil.createSafeSheetName(schema.sheetName)
+                val safeSheetName = WorkbookUtil.createSafeSheetName(schema.sheetName)
                 val sheet = workbook.createSheet(safeSheetName)
 
                 // NOTE: 컬럼 너비 설정
@@ -105,6 +106,8 @@ class SxssfExcelExporter : ExcelExporter {
 
             } finally {
                 // NOTE: 자원 해제 최우선 보장 (컴파일 경고 억제)
+                // NOTE: 특정 환경에서 발생할 수 있는 자원 해제 경고를 억제합니다.
+                // Suppress deprecation warnings for resource cleanup in certain environments.
                 @Suppress("DEPRECATION")
                 try {
                     workbook.dispose()

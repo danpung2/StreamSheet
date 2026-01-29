@@ -70,6 +70,8 @@ class AnnotationExcelSchema<T : Any>(
         columns.map { it.pattern }
     }
 
+    // NOTE: 제네릭 타입 소거(Type Erasure)로 인한 형변환 경고를 억제합니다.
+    // Suppress unchecked cast warnings due to type erasure.
     @Suppress("UNCHECKED_CAST")
     override fun toRow(entity: T): List<Any?> {
         return columns.map { meta ->
@@ -100,6 +102,8 @@ class AnnotationExcelSchema<T : Any>(
          * @param kClass 대상 클래스 / Target class
          * @return 어노테이션 기반 스키마 / Annotation-based schema
          */
+        // NOTE: 제네릭 타입 소거(Type Erasure)로 인한 형변환 경고를 억제합니다.
+        // Suppress unchecked cast warnings due to type erasure.
         @Suppress("UNCHECKED_CAST")
         fun <T : Any> from(kClass: KClass<T>): AnnotationExcelSchema<T> {
             return cache.get(kClass) { clazz ->
