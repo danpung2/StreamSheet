@@ -1,6 +1,9 @@
 package com.streamsheet.demo.controller
 
 import com.streamsheet.core.datasource.StreamingDataSource
+import com.streamsheet.core.exporter.ExcelExporter
+
+import com.streamsheet.core.exporter.SxssfExcelExporter
 import com.streamsheet.core.schema.AnnotationExcelSchema
 import com.streamsheet.demo.domain.UserActivity
 import com.streamsheet.demo.domain.UserActivityDocument
@@ -9,11 +12,18 @@ import com.streamsheet.demo.domain.UserActivityRepository
 import com.streamsheet.mongodb.MongoStreamingDataSource
 import com.streamsheet.spring.async.AsyncExportService
 import com.streamsheet.spring.async.JobManager
+import org.springframework.core.io.FileSystemResource
+import org.springframework.core.io.Resource
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.io.File
+import java.io.FileOutputStream
 import java.time.LocalDateTime
 import java.util.*
 
@@ -80,7 +90,39 @@ class DemoController(
         )
 
         val jobId = asyncExportService.startExport(schema, dataSource)
-        return mapOf("jobId" to jobId, "status" to "ACCEPTED")
+        return mapOf(
+            "jobId" to jobId, 
+            "status" to "ACCEPTED",
+            "statusUrl" to "http://localhost:8080/api/demo/status/$jobId"
+        )
+    }
+
+    /**
+     * 직접 파일 다운로드 (동기 방식)
+     * Direct file download (Synchronous)
+     * NOTE: 대용량 데이터의 경우 브라우저 타임아웃이 발생할 수 있으므로 비동기 방식을 권장합니다.
+     */
+    @GetMapping("/mongodb/export/download")
+    fun downloadMongoDirect(): ResponseEntity<Resource> {
+        val schema = AnnotationExcelSchema(UserActivityDocument::class)
+        val dataSource = MongoStreamingDataSource.create<UserActivityDocument>(mongoTemplate)
+        
+        // 임시 파일 생성
+        val tempFile = File.createTempFile("mongo-export-", ".xlsx")
+        
+        // Exporter 객체를 직접 생성하여 사용
+        val exporter = SxssfExcelExporter()
+        FileOutputStream(tempFile).use { output ->
+            exporter.export(schema, dataSource, output)
+        }
+        
+        val resource = FileSystemResource(tempFile)
+        val contentDisposition = "attachment; filename=\"mongodb-direct-export.xlsx\""
+        
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+            .body(resource)
     }
 
     @PostMapping("/export")
