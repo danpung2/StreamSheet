@@ -33,7 +33,10 @@ class LocalFileStorage(
         
         // baseUrl이 / 로 끝나지 않으면 / 추가
         val safeBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        return URI.create("$safeBaseUrl$fileName")
+        
+        // URL 인코딩 처리 (공백 등 특수문자 대응)
+        val encodedFileName = java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8.toString()).replace("+", "%20")
+        return URI.create("$safeBaseUrl$encodedFileName")
     }
 
     override fun delete(fileUri: URI) {
