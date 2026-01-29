@@ -31,7 +31,8 @@ class AnnotationExcelSchema<T : Any>(
         val property: KProperty1<*, *>,
         val header: String,
         val width: Int,
-        val order: Int
+        val order: Int,
+        val pattern: String?
     )
 
     /**
@@ -45,7 +46,8 @@ class AnnotationExcelSchema<T : Any>(
                         property = prop,
                         header = annotation.header,
                         width = annotation.width,
-                        order = annotation.order
+                        order = annotation.order,
+                        pattern = annotation.pattern.ifBlank { null }
                     )
                 }
             }
@@ -62,6 +64,10 @@ class AnnotationExcelSchema<T : Any>(
 
     override val columnWidths: List<Int> by lazy {
         columns.map { it.width }
+    }
+
+    override val columnPatterns: List<String?> by lazy {
+        columns.map { it.pattern }
     }
 
     @Suppress("UNCHECKED_CAST")

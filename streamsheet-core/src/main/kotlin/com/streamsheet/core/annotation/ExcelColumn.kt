@@ -16,5 +16,6 @@ package com.streamsheet.core.annotation
 annotation class ExcelColumn(
     val header: String,
     val width: Int = 15,
-    val order: Int = Int.MAX_VALUE
+    val order: Int = Int.MAX_VALUE,
+    val pattern: String = ""
 )

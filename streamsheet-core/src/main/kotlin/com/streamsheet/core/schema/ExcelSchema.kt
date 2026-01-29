@@ -26,6 +26,12 @@ interface ExcelSchema<T> {
      * In POI, multiply by 256.
      */
     val columnWidths: List<Int>
+    
+    /**
+     * 컬럼별 데이터 포맷 패턴 (Optional)
+     * Data format pattern for each column
+     */
+    val columnPatterns: List<String?> get() = emptyList()
 
     /**
      * 엔티티를 셀 값 리스트로 변환

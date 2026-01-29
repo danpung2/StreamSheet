@@ -61,6 +61,9 @@ class SxssfExcelExporter : ExcelExporter {
                 // NOTE: 스타일 생성
                 val headerStyle = if (config.applyHeaderStyle) createHeaderStyle(workbook) else null
                 val dataStyle = if (config.applyDataBorders) createDataStyle(workbook) else null
+                
+                // NOTE: 스타일 관리자 생성
+                val styleManager = StyleManager(workbook, dataStyle)
 
                 // NOTE: 헤더 행 작성
                 writeHeaderRow(sheet, schema, headerStyle, config.preventFormulaInjection)
@@ -82,7 +85,7 @@ class SxssfExcelExporter : ExcelExporter {
                         return@forEach
                     }
 
-                    writeDataRow(sheet, schema, entity, rowNum, dataStyle, config.preventFormulaInjection)
+                    writeDataRow(sheet, schema, entity, rowNum, styleManager, config.preventFormulaInjection)
                     rowNum++
 
                     // NOTE: 주기적 플러시
@@ -193,15 +196,25 @@ class SxssfExcelExporter : ExcelExporter {
         schema: ExcelSchema<T>,
         entity: T,
         rowNum: Int,
-        dataStyle: CellStyle?,
+        styleManager: StyleManager,
         preventFormulaInjection: Boolean
     ) {
         val row = sheet.createRow(rowNum)
         val cellValues = schema.toRow(entity)
+        val patterns = schema.columnPatterns
 
         cellValues.forEachIndexed { index, value ->
+            // NOTE: 정의된 패턴 확인 또는 타입별 기본 패턴 적용
+            val pattern = if (index < patterns.size) patterns[index] else null
+            val effectivePattern = pattern ?: when (value) {
+                is LocalDate -> "yyyy-mm-dd"
+                is LocalDateTime, is Date, is Calendar -> "yyyy-mm-dd hh:mm:ss"
+                else -> null
+            }
+
             row.createCell(index).apply {
-                dataStyle?.let { cellStyle = it }
+                // 스타일 적용
+                cellStyle = styleManager.getStyle(effectivePattern)
 
                 when (value) {
                     null -> setCellValue("")
@@ -222,6 +235,24 @@ class SxssfExcelExporter : ExcelExporter {
                         }
                         setCellValue(finalValue)
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * 스타일 캐싱 및 적용 관리자
+     */
+    private class StyleManager(private val workbook: SXSSFWorkbook, private val baseStyle: CellStyle?) {
+        private val styleCache = mutableMapOf<String, CellStyle>()
+
+        fun getStyle(pattern: String?): CellStyle? {
+            if (pattern == null) return baseStyle
+            return styleCache.getOrPut(pattern) {
+                workbook.createCellStyle().apply {
+                    baseStyle?.let { cloneStyleFrom(it) }
+                    val dataFormat = workbook.createDataFormat()
+                    setDataFormat(dataFormat.getFormat(pattern))
                 }
             }
         }
