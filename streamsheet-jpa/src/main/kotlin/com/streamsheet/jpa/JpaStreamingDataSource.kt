@@ -3,7 +3,7 @@ package com.streamsheet.jpa
 import com.streamsheet.core.datasource.StreamingDataSource
 import jakarta.persistence.EntityManager
 import java.util.stream.Stream
-import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * JPA 엔티티 기반 스트리밍 데이터 소스
@@ -20,7 +20,7 @@ class JpaStreamingDataSource<T : Any>(
     private val detachEntities: Boolean = true
 ) : StreamingDataSource<T> {
 
-    private val activeStreams = Collections.synchronizedList(mutableListOf<Stream<T>>())
+    private val activeStreams = CopyOnWriteArrayList<Stream<T>>()
 
     override val sourceName: String
         get() = "JPA:${this::class.simpleName}"
@@ -41,7 +41,7 @@ class JpaStreamingDataSource<T : Any>(
     }
 
     override fun close() {
-        activeStreams.forEach {
+        activeStreams.toList().forEach {
             runCatching { it.close() }
         }
         activeStreams.clear()

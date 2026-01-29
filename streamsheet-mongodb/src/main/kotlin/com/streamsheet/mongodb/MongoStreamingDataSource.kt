@@ -5,7 +5,7 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import java.util.stream.Stream
-import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.reflect.KClass
 
 /**
@@ -20,7 +20,7 @@ class MongoStreamingDataSource<S : Any, T : Any>(
 ) : StreamingDataSource<T> {
 
     // NOTE: 생성된 java.util.stream.Stream들을 추적하여 close() 시점에 일괄 해제
-    private val activeStreams = Collections.synchronizedList(mutableListOf<Stream<T>>())
+    private val activeStreams = CopyOnWriteArrayList<Stream<T>>()
 
     override val sourceName: String
         get() = "MongoDB:${sourceClass.simpleName}->${targetClass.simpleName}"
@@ -58,7 +58,7 @@ class MongoStreamingDataSource<S : Any, T : Any>(
     }
 
     override fun close() {
-        activeStreams.forEach { 
+        activeStreams.toList().forEach { 
             runCatching { it.close() }
         }
         activeStreams.clear()
