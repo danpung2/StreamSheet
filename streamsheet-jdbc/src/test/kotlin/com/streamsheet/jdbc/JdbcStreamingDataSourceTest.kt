@@ -2,13 +2,16 @@ package com.streamsheet.jdbc
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType
+import java.lang.reflect.Field
 
 class JdbcStreamingDataSourceTest {
 
@@ -71,5 +74,44 @@ class JdbcStreamingDataSourceTest {
         assertEquals(100, result[49])
         
         dataSource.close()
+    }
+
+    @Test
+    @DisplayName("DataSource가 없는 JdbcTemplate 사용 시 예외가 발생해야 한다")
+    fun `should throw exception when DataSource is missing`() {
+        val emptyTemplate = JdbcTemplate()
+        val sql = "SELECT 1"
+        val rowMapper = { rs: java.sql.ResultSet, _: Int -> 1 }
+        
+        val exception = assertThrows<IllegalArgumentException> {
+            JdbcStreamingDataSource(emptyTemplate, sql, rowMapper, fetchSize = 100)
+        }
+        assertTrue(exception.message!!.contains("JdbcTemplate must have a valid DataSource"))
+    }
+
+    @Test
+    @DisplayName("스트림이 닫히면 activeStreams에서 제거되어야 한다")
+    fun `should remove stream from activeStreams when closed`() {
+        // Given
+        val sql = "SELECT * FROM test_data"
+        val rowMapper = { rs: java.sql.ResultSet, _: Int -> rs.getInt("data_value") }
+        val dataSource = JdbcStreamingDataSource(jdbcTemplate, sql, rowMapper)
+
+        // When
+        val sequence = dataSource.stream()
+        
+        // Reflection to check private field
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreams = field.get(dataSource) as List<*>
+        
+        assertEquals(1, activeStreams.size)
+
+        // 스트림 소비 후 닫기 (Sequence의 경우 명시적으로 닫을 방법이 제한적이니 원본 Stream을 닫아야 함)
+        // 실제 운영 환경에서는 AutoCloseable이나 stream.close() 호출 시 동작함
+        dataSource.close()
+        
+        // Then
+        assertEquals(0, activeStreams.size)
     }
 }

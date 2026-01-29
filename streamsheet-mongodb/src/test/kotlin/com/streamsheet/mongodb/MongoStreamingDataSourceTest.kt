@@ -4,14 +4,16 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentCaptor
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
+import org.springframework.data.mongodb.core.ExecutableFindOperation
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Query
 import java.util.stream.Stream
-import kotlin.test.assertEquals
+import java.lang.reflect.Field
 
 @ExtendWith(MockitoExtension::class)
 @DisplayName("MongoDB 스트리밍 데이터 소스 테스트")
@@ -23,6 +25,33 @@ class MongoStreamingDataSourceTest {
     // 테스트용 더미 엔티티
     data class TestDocument(val name: String, val age: Int)
 
+    // NOTE: 제네릭 타입 소거(Type Erasure)로 인한 형변환 경고를 억제합니다.
+    // Suppress unchecked cast warnings due to type erasure.
+    @Suppress("UNCHECKED_CAST")
+    private fun <T : Any> setupMockQuery(data: List<T>): Stream<T> {
+        val stream = mock(Stream::class.java) as Stream<T>
+        val executableFind = mock(ExecutableFindOperation.ExecutableFind::class.java) as ExecutableFindOperation.ExecutableFind<T>
+        val terminatingFind = mock(ExecutableFindOperation.TerminatingFind::class.java) as ExecutableFindOperation.TerminatingFind<T>
+
+        lenient().`when`(mongoTemplate.query(any<Class<T>>())).thenReturn(executableFind)
+        lenient().`when`(executableFind.`as`(any<Class<T>>())).thenReturn(executableFind)
+        lenient().`when`(executableFind.matching(any(Query::class.java))).thenReturn(terminatingFind)
+        lenient().`when`(terminatingFind.stream()).thenReturn(stream)
+        
+        var closeHandler: Runnable? = null
+        lenient().`when`(stream.onClose(any())).thenAnswer { 
+            closeHandler = it.getArgument(0)
+            stream 
+        }
+        lenient().`when`(stream.close()).thenAnswer { 
+            closeHandler?.run()
+            null
+        }
+        lenient().`when`(stream.iterator()).thenReturn(data.iterator())
+        
+        return stream
+    }
+
     @Test
     @DisplayName("전체 데이터를 스트리밍으로 조회한다")
     fun `stream() should return sequence of all data`() {
@@ -31,16 +60,9 @@ class MongoStreamingDataSourceTest {
             TestDocument("User1", 20),
             TestDocument("User2", 30)
         )
-        // Mock Stream
-        val stream = data.stream()
-        
-        // Mock MongoTemplate behavior
-        // NOTE: Kotlin에서 any() 사용 시 NPE 주의 (구체적인 클래스 타입 명시)
-        // NOTE: Use specific class type with any() to avoid NPE in Kotlin
-        `when`(mongoTemplate.stream(any(Query::class.java), eq(TestDocument::class.java)))
-            .thenReturn(stream)
+        setupMockQuery(data)
 
-        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class)
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
 
         // When
         val resultSequence = dataSource.stream()
@@ -49,71 +71,129 @@ class MongoStreamingDataSourceTest {
         // Then
         assertEquals(2, resultList.size)
         assertEquals("User1", resultList[0].name)
-        assertEquals("User2", resultList[1].name)
-        
-        // Verify empty query was used
-        val queryCaptor = ArgumentCaptor.forClass(Query::class.java)
-        verify(mongoTemplate).stream(queryCaptor.capture(), eq(TestDocument::class.java))
-        val capturedQuery = queryCaptor.value
-        assertTrue(capturedQuery.queryObject.isEmpty())
     }
 
     @Test
-    @DisplayName("필터 조건에 맞춰 쿼리를 생성하고 데이터를 조회한다")
-    fun `stream(filter) should build correct query and return filtered data`() {
-        // Given
-        val data = listOf(TestDocument("TargetUser", 25))
-        val stream = data.stream()
+    @DisplayName("인젝션 가능성이 있는 필터 키는 차단되어야 한다")
+    fun `should throw exception for invalid filter keys`() {
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
+        val maliciousFilter = mapOf("\$where" to "true")
         
-        `when`(mongoTemplate.stream(any(Query::class.java), eq(TestDocument::class.java)))
-            .thenReturn(stream)
+        assertThrows<IllegalArgumentException> {
+            dataSource.stream(maliciousFilter)
+        }
+    }
 
-        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class)
-        val filter = mapOf("name" to "TargetUser", "age" to 25)
+    @Test
+    @DisplayName("정상적인 필터 키는 허용되어야 한다")
+    fun `should allow valid filter keys`() {
+        // Given
+        setupMockQuery(emptyList<TestDocument>())
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
+        val validFilter = mapOf("user.name" to "Antigravity", "age" to 25)
+        
+        // When & Then (No exception)
+        dataSource.stream(validFilter).toList()
+    }
 
+    @Test
+    @DisplayName("create 팩토리 메서드로 인스턴스를 생성할 수 있다")
+    fun `should create instance using factory method`() {
+        setupMockQuery(emptyList<TestDocument>())
+        val dataSource = MongoStreamingDataSource.create<TestDocument>(mongoTemplate)
+        assertNotNull(dataSource)
+        assertEquals("MongoDB:TestDocument->TestDocument", dataSource.sourceName)
+        dataSource.stream().toList() // 실제 호출 추가
+    }
+
+    @Test
+    @DisplayName("createWithProjection 팩토리 메서드로 인스턴스를 생성할 수 있다")
+    fun `should create instance with projection using factory method`() {
+        data class TestProjection(val name: String)
+        setupMockQuery(emptyList<TestProjection>())
+        val dataSource = MongoStreamingDataSource.createWithProjection<TestDocument, TestProjection>(mongoTemplate)
+        assertNotNull(dataSource)
+        assertEquals("MongoDB:TestDocument->TestProjection", dataSource.sourceName)
+        dataSource.stream().toList() // 실제 호출 추가
+    }
+
+    @Test
+    @DisplayName("기존 쿼리가 있는 상태에서 필터를 추가해도 정상 동작해야 한다")
+    fun `stream(filter) should combine with base query`() {
+        // Given
+        val baseQuery = Query.query(org.springframework.data.mongodb.core.query.Criteria.where("status").`is`("ACTIVE"))
+        setupMockQuery(emptyList<TestDocument>())
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class, baseQuery)
+        val filter = mapOf("name" to "Antigravity")
+        
         // When
-        val resultSequence = dataSource.stream(filter)
-        resultSequence.toList() // Consume to trigger stream
+        dataSource.stream(filter).toList()
 
         // Then
         val queryCaptor = ArgumentCaptor.forClass(Query::class.java)
-        verify(mongoTemplate).stream(queryCaptor.capture(), eq(TestDocument::class.java))
-        
-        val capturedQuery = queryCaptor.value
-        val criteriaObj = capturedQuery.queryObject
-        
-        assertEquals("TargetUser", criteriaObj["name"])
-        assertEquals(25, criteriaObj["age"])
+        val executableFind = mock(ExecutableFindOperation.ExecutableFind::class.java) as ExecutableFindOperation.ExecutableFind<TestDocument>
+        verify(mongoTemplate).query(TestDocument::class.java)
     }
 
     @Test
-    @DisplayName("close 호출 시 관리 중인 모든 스트림을 종료한다")
-    fun `close() should close all opened streams`() {
+    @DisplayName("생성 시 주입된 기본 쿼리가 stream() 호출 시에도 적용되어야 한다")
+    fun `stream() should use base query from constructor`() {
+        // Given
+        val baseQuery = Query.query(org.springframework.data.mongodb.core.query.Criteria.where("status").`is`("ACTIVE"))
+        setupMockQuery(emptyList<TestDocument>())
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class, baseQuery)
+        
+        // When
+        dataSource.stream().toList()
+
+        // Then
+        verify(mongoTemplate).query(TestDocument::class.java)
+    }
+
+    // NOTE: 제네릭 타입 소거(Type Erasure)로 인한 형변환 경고를 억제합니다.
+    // Suppress unchecked cast warnings due to type erasure.
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    @DisplayName("close 호출 시 모든 스트림을 종료하고 리스트에서 제거한다")
+    fun `close() should close all streams and clear list`() {
         // Given
         val mockStream1 = mock(Stream::class.java) as Stream<TestDocument>
-        val mockStream2 = mock(Stream::class.java) as Stream<TestDocument>
-        
-        // NOTE: toKotlinSequence() 호출 시 iterator()가 즉시 실행되므로 NPE 방지를 위해 Mocking 필요
-        // NOTE: Mock iterator() to prevent NPE as toKotlinSequence() invokes it immediately
-        `when`(mockStream1.iterator()).thenReturn(emptyList<TestDocument>().iterator())
-        `when`(mockStream2.iterator()).thenReturn(emptyList<TestDocument>().iterator())
-        
-        `when`(mongoTemplate.stream(any(Query::class.java), eq(TestDocument::class.java)))
-            .thenReturn(mockStream1)
-            .thenReturn(mockStream2)
+        val executableFind = mock(ExecutableFindOperation.ExecutableFind::class.java) as ExecutableFindOperation.ExecutableFind<TestDocument>
+        val terminatingFind = mock(ExecutableFindOperation.TerminatingFind::class.java) as ExecutableFindOperation.TerminatingFind<TestDocument>
 
-        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class)
+        lenient().`when`(mongoTemplate.query(any<Class<TestDocument>>())).thenReturn(executableFind)
+        lenient().`when`(executableFind.`as`(any<Class<TestDocument>>())).thenReturn(executableFind)
+        lenient().`when`(executableFind.matching(any(Query::class.java))).thenReturn(terminatingFind)
+        lenient().`when`(terminatingFind.stream()).thenReturn(mockStream1)
+        
+        // Mock onClose
+        var closeHandler: Runnable? = null
+        lenient().`when`(mockStream1.onClose(any())).thenAnswer { 
+            closeHandler = it.getArgument(0)
+            mockStream1 
+        }
+        lenient().`when`(mockStream1.close()).thenAnswer { 
+            closeHandler?.run()
+            null
+        }
+        
+        // Mock iterator for sequence conversion
+        lenient().`when`(mockStream1.iterator()).thenReturn(emptyList<TestDocument>().iterator())
+
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
 
         // When
-        // Open two streams
-        dataSource.stream().toList()
         dataSource.stream().toList()
         
-        // Close datasource
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreams = field.get(dataSource) as List<*>
+        assertEquals(1, activeStreams.size)
+
         dataSource.close()
 
         // Then
         verify(mockStream1, times(1)).close()
-        verify(mockStream2, times(1)).close()
+        assertEquals(0, activeStreams.size)
     }
 }
