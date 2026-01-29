@@ -38,6 +38,9 @@ class MongoStreamingDataSource<S : Any, T : Any>(
     override fun stream(filter: Map<String, Any>): Sequence<T> {
         val compositeQuery = Query.of(query)
         filter.forEach { (key, value) ->
+            // NOTE: NoSQL Injection 방지를 위해 Key 값에 특수 문자가 포함되어 있는지 검증합니다.
+            // Validate key to prevent NoSQL injection (Allow only alphanumeric and dots)
+            require(key.matches(Regex("^[a-zA-Z0-9._]+$"))) { "Invalid filter key: $key" }
             compositeQuery.addCriteria(Criteria.where(key).`is`(value))
         }
         

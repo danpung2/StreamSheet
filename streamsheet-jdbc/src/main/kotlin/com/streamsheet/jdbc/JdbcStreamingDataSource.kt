@@ -23,7 +23,8 @@ class JdbcStreamingDataSource<T>(
     // NOTE: 공유 JdbcTemplate의 설정을 건드리지 않기 위해 
     // fetchSize가 지정된 경우 로컬 래퍼를 생성하여 사용합니다. (Thread-safe)
     private val targetJdbcTemplate = if (fetchSize != null) {
-        JdbcTemplate(jdbcTemplate.dataSource!!).apply {
+        val dataSource = requireNotNull(jdbcTemplate.dataSource) { "JdbcTemplate must have a valid DataSource" }
+        JdbcTemplate(dataSource).apply {
             this.fetchSize = fetchSize
         }
     } else {
