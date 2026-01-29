@@ -1,6 +1,9 @@
 spring:
   application:
     name: streamsheet-demo
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/streamsheet_demo
 
 streamsheet:
   row-access-window-size: 100
