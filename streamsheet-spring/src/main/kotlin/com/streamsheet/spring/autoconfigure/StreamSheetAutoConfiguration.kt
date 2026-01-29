@@ -58,8 +58,17 @@ class StreamSheetAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun jobManager(): JobManager {
-        return InMemoryJobManager()
+    fun jobManager(
+        properties: StreamSheetProperties,
+        fileStorageProvider: org.springframework.beans.factory.ObjectProvider<FileStorage>
+    ): JobManager {
+        return InMemoryJobManager(retentionHours = properties.retentionHours) { job ->
+            job.resultUri?.let { uri ->
+                fileStorageProvider.ifAvailable { storage ->
+                    storage.delete(uri)
+                }
+            }
+        }
     }
 
     @Bean

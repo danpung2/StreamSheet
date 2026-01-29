@@ -67,6 +67,12 @@ data class StreamSheetProperties(
     val maxRows: Int? = null,
 
     /**
+     * 작업 결과 및 파일 보관 시간 (단위: 시간, 기본값: 24)
+     * Retention time for job results and files (Unit: hours, default: 24)
+     */
+    val retentionHours: Long = 24,
+
+    /**
      * 스토리지 설정
      * Storage configuration
      */

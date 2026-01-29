@@ -2,7 +2,7 @@ package com.streamsheet.spring.async
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import org.springframework.stereotype.Component
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.UUID
@@ -15,11 +15,22 @@ import java.util.concurrent.TimeUnit
  * NOTE: 분산 환경에서는 Redis 등으로 대체해야 합니다.
  * Should be replaced with Redis etc. in distributed environments.
  */
-class InMemoryJobManager : JobManager {
+class InMemoryJobManager(
+    private val retentionHours: Long = 24,
+    private val onRemoval: ((ExportJob) -> Unit)? = null
+) : JobManager {
+
+    private val logger = LoggerFactory.getLogger(InMemoryJobManager::class.java)
 
     private val jobCache: Cache<String, ExportJob> = Caffeine.newBuilder()
-        .expireAfterWrite(24, TimeUnit.HOURS) // 24시간 후 만료
+        .expireAfterWrite(retentionHours, TimeUnit.HOURS) // 설정된 시간 후 만료
         .maximumSize(10000)
+        .removalListener<String, ExportJob> { _, job, cause ->
+            if (job != null && cause.wasEvicted()) {
+                logger.debug("Job {} evicted (cause: {}). Triggering removal callback.", job.jobId, cause)
+                onRemoval?.invoke(job)
+            }
+        }
         .build()
 
     override fun createJob(): String {
