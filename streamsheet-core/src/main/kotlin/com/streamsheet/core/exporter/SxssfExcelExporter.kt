@@ -79,28 +79,34 @@ class SxssfExcelExporter : ExcelExporter {
                     ds.stream(filter)
                 }
 
-                dataSequence.forEach { entity ->
-                    // NOTE: 엑셀 하드 limit (1,048,576행) 체크
-                    // Excel hard limit check (1,048,576 rows). Last index is 1,048,575.
-                    if (rowNum >= 1_048_576) {
-                        logger.error("Excel hard limit reached (1,048,576 rows). Halting export to prevent failure.")
-                        return@forEach
-                    }
+                // NOTE: takeWhile을 사용하여 행 제한 도달 시 스트림을 즉시 중단
+                // Using takeWhile to immediately stop the stream when row limit is reached
+                dataSequence
+                    .takeWhile {
+                        // NOTE: 엑셀 하드 limit (1,048,576행) 체크
+                        // Excel hard limit check (1,048,576 rows). Last index is 1,048,575.
+                        if (rowNum >= 1_048_576) {
+                            logger.error("Excel hard limit reached (1,048,576 rows). Halting export to prevent failure.")
+                            return@takeWhile false
+                        }
 
-                    // NOTE: 사용자 설정 최대 행 추출 제한 확인
-                    if (config.maxRows != null && (rowNum - 1) >= config.maxRows) {
-                        logger.warn("Maximum row limit reached: {}. Halting export.", config.maxRows)
-                        return@forEach
-                    }
+                        // NOTE: 사용자 설정 최대 행 추출 제한 확인
+                        if (config.maxRows != null && (rowNum - 1) >= config.maxRows) {
+                            logger.warn("Maximum row limit reached: {}. Halting export.", config.maxRows)
+                            return@takeWhile false
+                        }
 
-                    writeDataRow(sheet, schema, entity, rowNum, styleManager, config.preventFormulaInjection)
-                    rowNum++
-
-                    // NOTE: 주기적 플러시
-                    if (rowNum % config.flushBatchSize == 0) {
-                        sheet.flushRows(config.rowAccessWindowSize)
+                        true
                     }
-                }
+                    .forEach { entity ->
+                        writeDataRow(sheet, schema, entity, rowNum, styleManager, config.preventFormulaInjection)
+                        rowNum++
+
+                        // NOTE: 주기적 플러시
+                        if (rowNum % config.flushBatchSize == 0) {
+                            sheet.flushRows(config.rowAccessWindowSize)
+                        }
+                    }
 
                 val endTime = System.currentTimeMillis()
                 if (config.enableMetrics) {
@@ -270,10 +276,18 @@ class SxssfExcelExporter : ExcelExporter {
 
     /**
      * 엑셀 수식 유도 문자 여부 확인
+     * Check if value starts with Excel formula trigger characters
+     *
+     * NOTE: 탭(\t), 개행(\n, \r) 등 모든 공백 문자를 제거하여 우회 공격을 방지합니다.
+     * Removes all whitespace characters (including tabs, newlines) to prevent bypass attacks.
      */
     private fun isFormula(value: String): Boolean {
         if (value.isBlank()) return false
-        val trimmed = value.trim()
+        // NOTE: trim() 대신 trimStart { it.isWhitespace() }를 사용하여
+        // 탭, 개행 등 모든 공백 문자를 앞에서 제거합니다.
+        // Use trimStart with isWhitespace() instead of trim() to remove
+        // all leading whitespace characters including tabs and newlines.
+        val trimmed = value.trimStart { it.isWhitespace() }
         if (trimmed.isEmpty()) return false
 
         val firstChar = trimmed[0]
