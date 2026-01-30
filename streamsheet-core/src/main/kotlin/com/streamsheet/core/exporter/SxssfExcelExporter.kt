@@ -2,6 +2,7 @@ package com.streamsheet.core.exporter
 
 import com.streamsheet.core.config.ExcelExportConfig
 import com.streamsheet.core.datasource.StreamingDataSource
+import com.streamsheet.core.exception.CellValueException
 import com.streamsheet.core.schema.ExcelSchema
 import org.apache.poi.ss.usermodel.BorderStyle
 import org.apache.poi.ss.usermodel.CellStyle
@@ -28,6 +29,10 @@ import java.util.Date
 class SxssfExcelExporter : ExcelExporter {
     private val logger = LoggerFactory.getLogger(SxssfExcelExporter::class.java)
 
+    private companion object {
+        private const val EXCEL_CELL_STRING_LIMIT = 32_767
+    }
+
     override fun <T> export(
         schema: ExcelSchema<T>,
         dataSource: StreamingDataSource<T>,
@@ -51,6 +56,9 @@ class SxssfExcelExporter : ExcelExporter {
                 isCompressTempFiles = config.compressTempFiles
             }
 
+            var rowNum = 1
+            val startTime = System.currentTimeMillis()
+
             try {
                 // NOTE: 시트 이름 안전화 (엑셀 금지 문자 및 길이 제한 처리)
                 val safeSheetName = WorkbookUtil.createSafeSheetName(schema.sheetName)
@@ -70,9 +78,6 @@ class SxssfExcelExporter : ExcelExporter {
                 writeHeaderRow(sheet, schema, headerStyle, config.preventFormulaInjection)
 
                 // NOTE: 데이터 스트리밍 및 작성
-                var rowNum = 1
-                val startTime = System.currentTimeMillis()
-
                 val dataSequence = if (filter.isEmpty()) {
                     ds.stream()
                 } else {
@@ -108,14 +113,23 @@ class SxssfExcelExporter : ExcelExporter {
                         }
                     }
 
-                val endTime = System.currentTimeMillis()
-                if (config.enableMetrics) {
-                    logger.info("Excel export completed: {} rows, {} ms", rowNum - 1, endTime - startTime)
-                }
-
                 // NOTE: 최종 출력
                 workbook.write(output)
                 output.flush()
+
+                val endTime = System.currentTimeMillis()
+                if (config.enableMetrics) {
+                    config.metrics.incrementExportedRows((rowNum - 1).toLong())
+                    config.metrics.recordExportDurationMs(endTime - startTime, true)
+                    logger.info("Excel export completed: {} rows, {} ms", rowNum - 1, endTime - startTime)
+                }
+
+            } catch (e: Exception) {
+                if (config.enableMetrics) {
+                    val now = System.currentTimeMillis()
+                    config.metrics.recordExportDurationMs(now - startTime, false)
+                }
+                throw e
 
             } finally {
                 // NOTE: 자원 해제 최우선 보장 (컴파일 경고 억제)
@@ -248,6 +262,14 @@ class SxssfExcelExporter : ExcelExporter {
                             "'$stringValue"
                         } else {
                             stringValue
+                        }
+
+                        if (finalValue.length > EXCEL_CELL_STRING_LIMIT) {
+                            throw CellValueException(
+                                message = "String cell value exceeds Excel limit ($EXCEL_CELL_STRING_LIMIT chars): length=${finalValue.length}",
+                                rowNumber = rowNum,
+                                columnIndex = index,
+                            )
                         }
                         setCellValue(finalValue)
                     }

@@ -5,6 +5,7 @@ import com.streamsheet.core.datasource.StreamingDataSource
 import com.streamsheet.core.schema.excelSchema
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
@@ -63,6 +64,22 @@ class SxssfExcelExporterQualityTest {
         
         assertEquals(32767, cellValue.length)
         assertEquals(longString, cellValue)
+    }
+
+    @Test
+    @DisplayName("셀 문자열이 32,767자를 초과하면 예외가 발생해야 한다")
+    fun `should fail when cell string exceeds limit`() {
+        val tooLongString = "A".repeat(32768)
+        val data = listOf(TestEntity(tooLongString))
+        val schema = excelSchema<TestEntity> {
+            column("Value") { it.value }
+        }
+        val exporter = SxssfExcelExporter()
+        val outputStream = ByteArrayOutputStream()
+
+        assertThrows(com.streamsheet.core.exception.CellValueException::class.java) {
+            exporter.export(schema, SimpleDataSource(data), outputStream)
+        }
     }
 
     @Test

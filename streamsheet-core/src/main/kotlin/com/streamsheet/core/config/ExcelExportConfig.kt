@@ -1,5 +1,7 @@
 package com.streamsheet.core.config
 
+import com.streamsheet.core.metrics.StreamSheetMetrics
+
 /**
  * 엑셀 내보내기 설정
  * Excel export configuration
@@ -55,7 +57,12 @@ data class ExcelExportConfig(
      * 최대 행 추출 제한 / Maximum row extraction limit
      * NOTE: null이면 제한이 없으며, 설정 시 해당 행 수를 초과하면 추출이 중단됩니다.
      */
-    val maxRows: Int? = null
+    val maxRows: Int? = null,
+
+    /**
+     * 메트릭 기록기 / Metrics recorder
+     */
+    val metrics: StreamSheetMetrics = StreamSheetMetrics.NOOP
 ) {
     init {
         require(rowAccessWindowSize > 0) { "rowAccessWindowSize must be positive" }
