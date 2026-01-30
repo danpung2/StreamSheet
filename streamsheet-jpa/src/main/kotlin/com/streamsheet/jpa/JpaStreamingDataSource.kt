@@ -1,7 +1,9 @@
 package com.streamsheet.jpa
 
 import com.streamsheet.core.datasource.StreamingDataSource
+import com.streamsheet.core.exception.DataSourceException
 import jakarta.persistence.EntityManager
+import org.slf4j.LoggerFactory
 import java.util.stream.Stream
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -20,14 +22,26 @@ class JpaStreamingDataSource<T : Any>(
     private val detachEntities: Boolean = true
 ) : StreamingDataSource<T> {
 
+    private val logger = LoggerFactory.getLogger(JpaStreamingDataSource::class.java)
     private val activeStreams = CopyOnWriteArrayList<Stream<T>>()
 
     override val sourceName: String
         get() = "JPA:${this::class.simpleName}"
 
     override fun stream(): Sequence<T> {
-        val javaStream = streamProvider.invoke()
-        javaStream.onClose { activeStreams.remove(javaStream) }
+        logger.debug("Starting JPA stream: source={}, detachEntities={}", sourceName, detachEntities)
+
+        val javaStream = try {
+            streamProvider.invoke()
+        } catch (e: Exception) {
+            logger.error("Failed to create JPA stream: source={}, error={}", sourceName, e.message, e)
+            throw DataSourceException("Failed to create entity stream", sourceName, e)
+        }
+
+        javaStream.onClose {
+            activeStreams.remove(javaStream)
+            logger.debug("JPA stream closed: source={}", sourceName)
+        }
         activeStreams.add(javaStream)
 
         return Sequence {
@@ -53,14 +67,34 @@ class JpaStreamingDataSource<T : Any>(
     }
 
     override fun close() {
-        activeStreams.toList().forEach {
-            runCatching { it.close() }
+        val streamCount = activeStreams.size
+        if (streamCount > 0) {
+            logger.debug("Closing {} active JPA stream(s): source={}", streamCount, sourceName)
+        }
+
+        val errors = mutableListOf<Throwable>()
+        activeStreams.toList().forEach { stream ->
+            runCatching { stream.close() }
+                .onFailure { e ->
+                    logger.warn("Failed to close JPA stream: source={}, error={}", sourceName, e.message, e)
+                    errors.add(e)
+                }
         }
         activeStreams.clear()
-        
+
         if (detachEntities) {
             // 마지막으로 영속성 컨텍스트를 비워줌
-            entityManager.clear()
+            logger.debug("Clearing EntityManager persistence context: source={}", sourceName)
+            runCatching { entityManager.clear() }
+                .onFailure { e ->
+                    logger.warn("Failed to clear EntityManager: source={}, error={}", sourceName, e.message, e)
+                }
+        }
+
+        if (errors.isNotEmpty()) {
+            logger.warn("Completed closing with {} error(s): source={}", errors.size, sourceName)
+        } else if (streamCount > 0) {
+            logger.debug("Successfully closed all JPA streams: source={}", sourceName)
         }
     }
 }
