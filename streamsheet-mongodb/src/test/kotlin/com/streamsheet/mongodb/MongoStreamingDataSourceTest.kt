@@ -1,5 +1,6 @@
 package com.streamsheet.mongodb
 
+import com.streamsheet.core.exception.ValidationException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -78,10 +79,12 @@ class MongoStreamingDataSourceTest {
     fun `should throw exception for invalid filter keys`() {
         val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
         val maliciousFilter = mapOf("\$where" to "true")
-        
-        assertThrows<IllegalArgumentException> {
+
+        val exception = assertThrows<ValidationException> {
             dataSource.stream(maliciousFilter)
         }
+        assertEquals("filter.key", exception.fieldName)
+        assertEquals("\$where", exception.invalidValue)
     }
 
     @Test
