@@ -11,10 +11,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
-    // Optional Security Dependencies
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'io.micrometer:micrometer-core'
+    implementation 'org.springframework.retry:spring-retry'
+
     compileOnly 'org.springframework.boot:spring-boot-starter-security'
 
-    // Optional Storage Dependencies
     compileOnly 'software.amazon.awssdk:s3:2.21.1'
     compileOnly 'com.google.cloud:google-cloud-storage:2.29.0'
     compileOnly 'org.springframework.boot:spring-boot-starter-web'
