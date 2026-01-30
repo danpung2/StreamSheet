@@ -1,6 +1,7 @@
 package com.streamsheet.mongodb
 
 import com.streamsheet.core.exception.ValidationException
+import com.streamsheet.mongodb.filter.MongoFilter
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -100,6 +101,34 @@ class MongoStreamingDataSourceTest {
     }
 
     @Test
+    @DisplayName("Map 형태의 필터 값은 차단되어야 한다 (operator injection 방지)")
+    fun `should reject map filter values`() {
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
+        val filter = mapOf("age" to mapOf("\$gt" to 1))
+
+        val exception = assertThrows<ValidationException> {
+            dataSource.stream(filter)
+        }
+        assertEquals("filter.value", exception.fieldName)
+        assertNotNull(exception.invalidValue)
+    }
+
+    @Test
+    @DisplayName("IN/Range/Regex typed filter를 적용할 수 있어야 한다")
+    fun `should apply typed filters`() {
+        setupMockQuery(emptyList<TestDocument>())
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
+
+        dataSource.stream(
+            mapOf(
+                "age" to MongoFilter.In(listOf(10, 20, 30)),
+                "name" to MongoFilter.Regex("User.*"),
+                "score" to MongoFilter.Range(gte = 0, lt = 100),
+            )
+        ).toList()
+    }
+
+    @Test
     @DisplayName("create 팩토리 메서드로 인스턴스를 생성할 수 있다")
     fun `should create instance using factory method`() {
         setupMockQuery(emptyList<TestDocument>())
@@ -107,6 +136,16 @@ class MongoStreamingDataSourceTest {
         assertNotNull(dataSource)
         assertEquals("MongoDB:TestDocument->TestDocument", dataSource.sourceName)
         dataSource.stream().toList() // 실제 호출 추가
+    }
+
+    @Test
+    @DisplayName("Java Class 기반 create 팩토리 메서드로 인스턴스를 생성할 수 있다")
+    fun `should create instance using class factory method`() {
+        setupMockQuery(emptyList<TestDocument>())
+        val dataSource = MongoStreamingDataSource.create(mongoTemplate, TestDocument::class.java)
+        assertNotNull(dataSource)
+        assertEquals("MongoDB:TestDocument->TestDocument", dataSource.sourceName)
+        dataSource.stream().toList()
     }
 
     @Test
@@ -118,6 +157,21 @@ class MongoStreamingDataSourceTest {
         assertNotNull(dataSource)
         assertEquals("MongoDB:TestDocument->TestProjection", dataSource.sourceName)
         dataSource.stream().toList() // 실제 호출 추가
+    }
+
+    @Test
+    @DisplayName("Java Class 기반 createWithProjection 팩토리 메서드로 인스턴스를 생성할 수 있다")
+    fun `should create instance with projection using class factory method`() {
+        data class TestProjection(val name: String)
+        setupMockQuery(emptyList<TestProjection>())
+        val dataSource = MongoStreamingDataSource.createWithProjection(
+            mongoTemplate,
+            TestDocument::class.java,
+            TestProjection::class.java,
+        )
+        assertNotNull(dataSource)
+        assertEquals("MongoDB:TestDocument->TestProjection", dataSource.sourceName)
+        dataSource.stream().toList()
     }
 
     @Test

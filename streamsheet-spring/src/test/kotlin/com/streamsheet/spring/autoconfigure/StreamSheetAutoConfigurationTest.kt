@@ -2,6 +2,7 @@ package com.streamsheet.spring.autoconfigure
 
 import com.streamsheet.core.exporter.SxssfExcelExporter
 import com.streamsheet.spring.async.AsyncExportService
+import com.streamsheet.spring.async.AsyncExportWorker
 import com.streamsheet.spring.async.JobManager
 import com.streamsheet.spring.storage.FileStorage
 import org.assertj.core.api.Assertions.assertThat
@@ -31,6 +32,7 @@ class StreamSheetAutoConfigurationTest {
             assertThat(context).hasSingleBean(SxssfExcelExporter::class.java)
             assertThat(context).hasSingleBean(JobManager::class.java)
             assertThat(context).hasSingleBean(FileStorage::class.java)
+            assertThat(context).hasSingleBean(AsyncExportWorker::class.java)
             assertThat(context).hasSingleBean(AsyncExportService::class.java)
         }
     }

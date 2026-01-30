@@ -12,9 +12,8 @@ import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.Mockito.*
 import org.mockito.kotlin.any
-import org.mockito.kotlin.eq
 import org.springframework.context.ApplicationEventPublisher
-import java.io.InputStream
+import com.streamsheet.spring.tracing.NoopStreamSheetTracer
 import java.net.URI
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -35,9 +34,8 @@ class AsyncExportConcurrencyTest {
         val eventPublisher = mock(ApplicationEventPublisher::class.java)
         val config = ExcelExportConfig.DEFAULT
 
-        val asyncExportService = AsyncExportService(
-            jobManager, fileStorage, excelExporter, config, eventPublisher
-        )
+        val worker = AsyncExportWorker(jobManager, fileStorage, excelExporter, config, eventPublisher, NoopStreamSheetTracer)
+        val asyncExportService = AsyncExportService(jobManager, worker)
 
         val schema = mock(ExcelSchema::class.java) as ExcelSchema<Any>
         `when`(schema.sheetName).thenReturn("TestSheet")

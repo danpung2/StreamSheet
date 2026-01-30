@@ -69,4 +69,30 @@ class InMemoryJobManagerTest {
         assertEquals(errorMessage, job?.errorMessage)
         assertNotNull(job?.completedAt)
     }
+
+    @Test
+    @DisplayName("취소 요청 시 cancelRequested가 true가 되어야 한다")
+    fun `requestCancel() should mark cancelRequested`() {
+        val jobId = jobManager.createJob()
+
+        jobManager.requestCancel(jobId)
+
+        val job = jobManager.getJob(jobId)
+        assertNotNull(job)
+        assertTrue(job?.cancelRequested == true)
+        assertTrue(jobManager.isCancelRequested(jobId))
+    }
+
+    @Test
+    @DisplayName("진행률 업데이트 시 rowsWritten/batchesFlushed가 반영되어야 한다")
+    fun `updateProgress() should update progress fields`() {
+        val jobId = jobManager.createJob()
+
+        jobManager.updateProgress(jobId, rowsWritten = 10, batchesFlushed = 2)
+
+        val job = jobManager.getJob(jobId)
+        assertNotNull(job)
+        assertEquals(10, job?.rowsWritten)
+        assertEquals(2, job?.batchesFlushed)
+    }
 }
