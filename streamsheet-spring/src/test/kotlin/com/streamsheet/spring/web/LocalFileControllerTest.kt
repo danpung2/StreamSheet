@@ -74,4 +74,24 @@ class LocalFileControllerTest {
         // Cleanup
         tempDir.toFile().delete()
     }
+
+    @Test
+    @DisplayName("경로 순회(Path Traversal) 시도는 400을 반환해야 한다")
+    fun `download() should return 400 when path traversal is attempted`() {
+        // Given
+        val tempDir = Files.createTempDirectory("streamsheet-test-traversal")
+        val storageProps = org.mockito.Mockito.mock(com.streamsheet.spring.autoconfigure.StreamSheetStorageProperties::class.java)
+        val localProps = org.mockito.Mockito.mock(com.streamsheet.spring.autoconfigure.LocalStorageProperties::class.java)
+
+        org.mockito.Mockito.`when`(properties.storage).thenReturn(storageProps)
+        org.mockito.Mockito.`when`(storageProps.local).thenReturn(localProps)
+        org.mockito.Mockito.`when`(localProps.path).thenReturn(tempDir.toString())
+
+        // When & Then
+        mockMvc.perform(get("/api/streamsheet/download/.."))
+            .andExpect(status().isBadRequest)
+
+        // Cleanup
+        tempDir.toFile().delete()
+    }
 }
