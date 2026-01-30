@@ -1,1 +1,2 @@
 com.streamsheet.spring.autoconfigure.StreamSheetAutoConfiguration
+com.streamsheet.spring.autoconfigure.StreamSheetSecurityAutoConfiguration
