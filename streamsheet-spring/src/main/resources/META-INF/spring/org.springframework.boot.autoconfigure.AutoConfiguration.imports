@@ -1,2 +1,4 @@
+com.streamsheet.spring.autoconfigure.StreamSheetTracingAutoConfiguration
 com.streamsheet.spring.autoconfigure.StreamSheetAutoConfiguration
 com.streamsheet.spring.autoconfigure.StreamSheetSecurityAutoConfiguration
+com.streamsheet.spring.autoconfigure.StreamSheetRateLimitAutoConfiguration

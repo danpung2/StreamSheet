@@ -28,6 +28,9 @@ class RedisJobManager(
             mapOf(
                 FIELD_JOB_ID to jobId,
                 FIELD_STATUS to JobStatus.READY.name,
+                FIELD_ROWS_WRITTEN to "0",
+                FIELD_BATCHES_FLUSHED to "0",
+                FIELD_CANCEL_REQUESTED to "false",
                 FIELD_CREATED_AT to now.toString(),
             )
         )
@@ -45,12 +48,18 @@ class RedisJobManager(
         val completedAt = entries[FIELD_COMPLETED_AT]?.takeIf { it.isNotBlank() }?.let { LocalDateTime.parse(it) }
         val resultUri = entries[FIELD_RESULT_URI]?.takeIf { it.isNotBlank() }?.let { URI.create(it) }
         val errorMessage = entries[FIELD_ERROR_MESSAGE]?.takeIf { it.isNotBlank() }
+        val rowsWritten = entries[FIELD_ROWS_WRITTEN]?.toLongOrNull() ?: 0L
+        val batchesFlushed = entries[FIELD_BATCHES_FLUSHED]?.toLongOrNull() ?: 0L
+        val cancelRequested = entries[FIELD_CANCEL_REQUESTED]?.toBooleanStrictOrNull() ?: false
 
         return ExportJob(
             jobId = jobId,
             status = status,
             resultUri = resultUri,
             errorMessage = errorMessage,
+            rowsWritten = rowsWritten,
+            batchesFlushed = batchesFlushed,
+            cancelRequested = cancelRequested,
             createdAt = createdAt,
             completedAt = completedAt,
         )
@@ -69,7 +78,7 @@ class RedisJobManager(
             hashOps.put(key, FIELD_ERROR_MESSAGE, errorMessage)
         }
 
-        val completedAt = if (status == JobStatus.COMPLETED || status == JobStatus.FAILED) {
+        val completedAt = if (status == JobStatus.COMPLETED || status == JobStatus.FAILED || status == JobStatus.CANCELLED) {
             LocalDateTime.now().toString()
         } else {
             ""
@@ -80,6 +89,27 @@ class RedisJobManager(
         redisTemplate.expire(key, Duration.ofHours(retentionHours))
     }
 
+    override fun updateProgress(jobId: String, rowsWritten: Long, batchesFlushed: Long) {
+        val key = key(jobId)
+        if (redisTemplate.hasKey(key) != true) return
+        hashOps.put(key, FIELD_ROWS_WRITTEN, rowsWritten.toString())
+        hashOps.put(key, FIELD_BATCHES_FLUSHED, batchesFlushed.toString())
+        redisTemplate.expire(key, Duration.ofHours(retentionHours))
+    }
+
+    override fun requestCancel(jobId: String) {
+        val key = key(jobId)
+        if (redisTemplate.hasKey(key) != true) return
+        hashOps.put(key, FIELD_CANCEL_REQUESTED, "true")
+        redisTemplate.expire(key, Duration.ofHours(retentionHours))
+    }
+
+    override fun isCancelRequested(jobId: String): Boolean {
+        val key = key(jobId)
+        if (redisTemplate.hasKey(key) != true) return false
+        return hashOps.get(key, FIELD_CANCEL_REQUESTED)?.toBooleanStrictOrNull() ?: false
+    }
+
     private fun key(jobId: String): String = "${keyPrefix}${jobId}"
 
     private companion object {
@@ -87,6 +117,9 @@ class RedisJobManager(
         private const val FIELD_STATUS = "status"
         private const val FIELD_RESULT_URI = "resultUri"
         private const val FIELD_ERROR_MESSAGE = "errorMessage"
+        private const val FIELD_ROWS_WRITTEN = "rowsWritten"
+        private const val FIELD_BATCHES_FLUSHED = "batchesFlushed"
+        private const val FIELD_CANCEL_REQUESTED = "cancelRequested"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_COMPLETED_AT = "completedAt"
     }

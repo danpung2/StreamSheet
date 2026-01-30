@@ -11,6 +11,7 @@ enum class JobStatus {
     READY,
     PROCESSING,
     COMPLETED,
+    CANCELLED,
     FAILED
 }
 
@@ -23,6 +24,9 @@ data class ExportJob(
     val status: JobStatus,
     val resultUri: URI? = null,
     val errorMessage: String? = null,
+    val rowsWritten: Long = 0,
+    val batchesFlushed: Long = 0,
+    val cancelRequested: Boolean = false,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val completedAt: LocalDateTime? = null
 )

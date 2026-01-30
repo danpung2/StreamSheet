@@ -9,6 +9,7 @@ import com.streamsheet.core.metrics.StreamSheetMetrics
 import com.streamsheet.core.exporter.ExcelExporter
 import com.streamsheet.core.exporter.SxssfExcelExporter
 import com.streamsheet.spring.async.AsyncExportService
+import com.streamsheet.spring.async.AsyncExportWorker
 import com.streamsheet.spring.async.InMemoryJobManager
 import com.streamsheet.spring.async.JobManager
 import com.streamsheet.spring.async.RedisJobManager
@@ -19,6 +20,8 @@ import com.streamsheet.spring.storage.GcsFileStorage
 import com.streamsheet.spring.storage.LocalFileStorage
 import com.streamsheet.spring.storage.S3FileStorage
 import com.streamsheet.spring.web.LocalFileController
+import com.streamsheet.spring.tracing.NoopStreamSheetTracer
+import com.streamsheet.spring.tracing.StreamSheetTracer
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -168,12 +171,28 @@ class StreamSheetAutoConfiguration {
     @ConditionalOnMissingBean
     fun asyncExportService(
         jobManager: JobManager,
+        worker: AsyncExportWorker,
+    ): AsyncExportService {
+        return AsyncExportService(jobManager, worker)
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun streamSheetTracer(): StreamSheetTracer {
+        return NoopStreamSheetTracer
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun asyncExportWorker(
+        jobManager: JobManager,
         fileStorage: FileStorage,
         excelExporter: ExcelExporter,
         config: ExcelExportConfig,
-        eventPublisher: ApplicationEventPublisher
-    ): AsyncExportService {
-        return AsyncExportService(jobManager, fileStorage, excelExporter, config, eventPublisher)
+        eventPublisher: ApplicationEventPublisher,
+        tracer: StreamSheetTracer,
+    ): AsyncExportWorker {
+        return AsyncExportWorker(jobManager, fileStorage, excelExporter, config, eventPublisher, tracer)
     }
 
     /**

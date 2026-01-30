@@ -51,9 +51,28 @@ class InMemoryJobManager(
             status = status,
             resultUri = resultUri ?: currentJob.resultUri,
             errorMessage = errorMessage ?: currentJob.errorMessage,
-            completedAt = if (status == JobStatus.COMPLETED || status == JobStatus.FAILED) LocalDateTime.now() else null
+            completedAt = if (status == JobStatus.COMPLETED || status == JobStatus.FAILED || status == JobStatus.CANCELLED) LocalDateTime.now() else null
         )
         
         jobCache.put(jobId, updatedJob)
+    }
+
+    override fun updateProgress(jobId: String, rowsWritten: Long, batchesFlushed: Long) {
+        val currentJob = jobCache.getIfPresent(jobId) ?: return
+        val updatedJob = currentJob.copy(
+            rowsWritten = rowsWritten,
+            batchesFlushed = batchesFlushed,
+        )
+        jobCache.put(jobId, updatedJob)
+    }
+
+    override fun requestCancel(jobId: String) {
+        val currentJob = jobCache.getIfPresent(jobId) ?: return
+        val updatedJob = currentJob.copy(cancelRequested = true)
+        jobCache.put(jobId, updatedJob)
+    }
+
+    override fun isCancelRequested(jobId: String): Boolean {
+        return jobCache.getIfPresent(jobId)?.cancelRequested == true
     }
 }
