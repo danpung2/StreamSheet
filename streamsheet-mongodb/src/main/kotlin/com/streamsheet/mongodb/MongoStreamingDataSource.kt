@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import com.streamsheet.mongodb.filter.MongoFilter
 import java.util.stream.Stream
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.reflect.KClass
@@ -61,7 +62,20 @@ class MongoStreamingDataSource<S : Any, T : Any>(
                     invalidValue = key
                 )
             }
-            compositeQuery.addCriteria(Criteria.where(key).`is`(value))
+
+            val criteria = when (value) {
+                is MongoFilter -> value.toCriteria(key)
+                is Map<*, *> -> {
+                    logger.warn("Invalid filter value rejected (map): source={}, key={}", sourceName, key)
+                    throw ValidationException(
+                        "Filter value must not be a map. Use typed filters instead.",
+                        fieldName = "filter.value",
+                        invalidValue = value
+                    )
+                }
+                else -> Criteria.where(key).`is`(value)
+            }
+            compositeQuery.addCriteria(criteria)
         }
 
         val javaStream: Stream<T> = try {
@@ -124,6 +138,25 @@ class MongoStreamingDataSource<S : Any, T : Any>(
     }
 
     companion object {
+        @JvmStatic
+        fun <T : Any> create(
+            mongoTemplate: MongoTemplate,
+            targetClass: Class<T>,
+            query: Query = Query(),
+        ): MongoStreamingDataSource<T, T> {
+            return MongoStreamingDataSource(mongoTemplate, targetClass.kotlin, targetClass.kotlin, query)
+        }
+
+        @JvmStatic
+        fun <S : Any, T : Any> createWithProjection(
+            mongoTemplate: MongoTemplate,
+            sourceClass: Class<S>,
+            targetClass: Class<T>,
+            query: Query = Query(),
+        ): MongoStreamingDataSource<S, T> {
+            return MongoStreamingDataSource(mongoTemplate, sourceClass.kotlin, targetClass.kotlin, query)
+        }
+
         inline fun <reified T : Any> create(mongoTemplate: MongoTemplate, query: Query = Query()): MongoStreamingDataSource<T, T> {
             return MongoStreamingDataSource(mongoTemplate, T::class, T::class, query)
         }
