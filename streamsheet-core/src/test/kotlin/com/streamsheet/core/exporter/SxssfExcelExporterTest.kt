@@ -140,4 +140,72 @@ class SxssfExcelExporterTest {
 
         assertTrue(dataSource.isClosed, "DataSource should be closed even after exception")
     }
+
+    @Test
+    @DisplayName("탭 문자로 시작하는 수식 인젝션을 방지해야 한다")
+    fun `should prevent formula injection with tab character`() {
+        val data = listOf(TestEntity("\t=cmd|'/C calc'!A0", 10))
+        val schema = excelSchema<TestEntity> {
+            column("Name") { it.name }
+        }
+        val dataSource = TestDataSource(data)
+        val outputStream = ByteArrayOutputStream()
+        val exporter = SxssfExcelExporter()
+        val config = ExcelExportConfig(preventFormulaInjection = true)
+
+        exporter.export(schema, dataSource, outputStream, config)
+
+        val workbook = XSSFWorkbook(ByteArrayInputStream(outputStream.toByteArray()))
+        val sheet = workbook.getSheetAt(0)
+        val cellValue = sheet.getRow(1).getCell(0).stringCellValue
+
+        // Should be escaped even with tab prefix
+        assertEquals("'\t=cmd|'/C calc'!A0", cellValue)
+    }
+
+    @Test
+    @DisplayName("개행 문자로 시작하는 수식 인젝션을 방지해야 한다")
+    fun `should prevent formula injection with newline character`() {
+        val data = listOf(TestEntity("\n=HYPERLINK(\"http://evil.com\")", 10))
+        val schema = excelSchema<TestEntity> {
+            column("Name") { it.name }
+        }
+        val dataSource = TestDataSource(data)
+        val outputStream = ByteArrayOutputStream()
+        val exporter = SxssfExcelExporter()
+        val config = ExcelExportConfig(preventFormulaInjection = true)
+
+        exporter.export(schema, dataSource, outputStream, config)
+
+        val workbook = XSSFWorkbook(ByteArrayInputStream(outputStream.toByteArray()))
+        val sheet = workbook.getSheetAt(0)
+        val cellValue = sheet.getRow(1).getCell(0).stringCellValue
+
+        // Should be escaped even with newline prefix
+        assertEquals("'\n=HYPERLINK(\"http://evil.com\")", cellValue)
+    }
+
+    @Test
+    @DisplayName("최대 행 제한 도달 시 스트림 소비를 즉시 중단해야 한다")
+    fun `should stop consuming stream immediately when max rows reached`() {
+        var consumedCount = 0
+        val schema = excelSchema<TestEntity> { column("Name") { it.name } }
+        val dataSource = object : StreamingDataSource<TestEntity> {
+            override fun stream(): Sequence<TestEntity> = generateSequence(0) { it + 1 }
+                .map {
+                    consumedCount++
+                    TestEntity("User $it", it)
+                }
+            override fun close() {}
+        }
+        val outputStream = ByteArrayOutputStream()
+        val exporter = SxssfExcelExporter()
+        val config = ExcelExportConfig(maxRows = 10)
+
+        exporter.export(schema, dataSource, outputStream, config)
+
+        // consumedCount should be 11 (10 rows + 1 for takeWhile check that returns false)
+        // Not 100 or more which would indicate the loop bug
+        assertTrue(consumedCount <= 11, "Stream should stop consuming after max rows. Consumed: $consumedCount")
+    }
 }
