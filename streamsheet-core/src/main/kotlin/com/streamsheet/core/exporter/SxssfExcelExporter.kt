@@ -3,6 +3,8 @@ package com.streamsheet.core.exporter
 import com.streamsheet.core.config.ExcelExportConfig
 import com.streamsheet.core.datasource.StreamingDataSource
 import com.streamsheet.core.exception.CellValueException
+import com.streamsheet.core.progress.ExportPhase
+import com.streamsheet.core.progress.ExportProgress
 import com.streamsheet.core.schema.ExcelSchema
 import org.apache.poi.ss.usermodel.BorderStyle
 import org.apache.poi.ss.usermodel.CellStyle
@@ -26,7 +28,7 @@ import java.util.Date
  * NOTE: SXSSF는 메모리에 유지하는 행 수를 제한하여 대용량 데이터 처리 시 OOM을 방지합니다.
  * SXSSF limits the number of rows kept in memory, preventing OOM on large datasets.
  */
-class SxssfExcelExporter : ExcelExporter {
+class SxssfExcelExporter : ExcelExporter, ExcelExporterWithOptions {
     private val logger = LoggerFactory.getLogger(SxssfExcelExporter::class.java)
 
     private companion object {
@@ -39,7 +41,7 @@ class SxssfExcelExporter : ExcelExporter {
         output: OutputStream,
         config: ExcelExportConfig
     ) {
-        export(schema, dataSource, emptyMap(), output, config)
+        export(schema, dataSource, emptyMap(), output, config, ExportOptions.DEFAULT)
     }
 
     override fun <T> export(
@@ -49,6 +51,27 @@ class SxssfExcelExporter : ExcelExporter {
         output: OutputStream,
         config: ExcelExportConfig
     ) {
+        export(schema, dataSource, filter, output, config, ExportOptions.DEFAULT)
+    }
+
+    override fun <T> export(
+        schema: ExcelSchema<T>,
+        dataSource: StreamingDataSource<T>,
+        output: OutputStream,
+        config: ExcelExportConfig,
+        options: ExportOptions,
+    ) {
+        export(schema, dataSource, emptyMap(), output, config, options)
+    }
+
+    override fun <T> export(
+        schema: ExcelSchema<T>,
+        dataSource: StreamingDataSource<T>,
+        filter: Map<String, Any>,
+        output: OutputStream,
+        config: ExcelExportConfig,
+        options: ExportOptions,
+    ) {
         // NOTE: 데이터 소스를 최상위에서 관리하여 예외 발생 시에도 리소스 해제 보장
         dataSource.use { ds ->
             // NOTE: SXSSFWorkbook 생성 - 메모리 윈도우 크기 설정
@@ -57,9 +80,19 @@ class SxssfExcelExporter : ExcelExporter {
             }
 
             var rowNum = 1
+            var batchesFlushed = 0L
             val startTime = System.currentTimeMillis()
 
             try {
+                options.cancellationToken.throwIfCancellationRequested()
+                options.progressListener.onProgress(
+                    ExportProgress(
+                        phase = ExportPhase.STARTING,
+                        rowsWritten = 0,
+                        batchesFlushed = 0,
+                    )
+                )
+
                 // NOTE: 시트 이름 안전화 (엑셀 금지 문자 및 길이 제한 처리)
                 val safeSheetName = WorkbookUtil.createSafeSheetName(schema.sheetName)
                 val sheet = workbook.createSheet(safeSheetName)
@@ -104,16 +137,35 @@ class SxssfExcelExporter : ExcelExporter {
                         true
                     }
                     .forEach { entity ->
+                        options.cancellationToken.throwIfCancellationRequested()
                         writeDataRow(sheet, schema, entity, rowNum, styleManager, config.preventFormulaInjection)
                         rowNum++
 
+                        val rowsWritten = (rowNum - 1).toLong()
+
                         // NOTE: 주기적 플러시
-                        if (rowNum % config.flushBatchSize == 0) {
+                        if (rowsWritten % config.flushBatchSize == 0L) {
                             sheet.flushRows(config.rowAccessWindowSize)
+                            batchesFlushed++
+                            options.progressListener.onProgress(
+                                ExportProgress(
+                                    phase = ExportPhase.FLUSHED_BATCH,
+                                    rowsWritten = rowsWritten,
+                                    batchesFlushed = batchesFlushed,
+                                )
+                            )
                         }
                     }
 
                 // NOTE: 최종 출력
+                options.cancellationToken.throwIfCancellationRequested()
+                options.progressListener.onProgress(
+                    ExportProgress(
+                        phase = ExportPhase.WRITING_WORKBOOK,
+                        rowsWritten = (rowNum - 1).toLong(),
+                        batchesFlushed = batchesFlushed,
+                    )
+                )
                 workbook.write(output)
                 output.flush()
 
@@ -124,10 +176,36 @@ class SxssfExcelExporter : ExcelExporter {
                     logger.info("Excel export completed: {} rows, {} ms", rowNum - 1, endTime - startTime)
                 }
 
+                options.progressListener.onProgress(
+                    ExportProgress(
+                        phase = ExportPhase.COMPLETED,
+                        rowsWritten = (rowNum - 1).toLong(),
+                        batchesFlushed = batchesFlushed,
+                    )
+                )
+
             } catch (e: Exception) {
                 if (config.enableMetrics) {
                     val now = System.currentTimeMillis()
                     config.metrics.recordExportDurationMs(now - startTime, false)
+                }
+
+                if (e is com.streamsheet.core.cancel.ExportCancelledException) {
+                    options.progressListener.onProgress(
+                        ExportProgress(
+                            phase = ExportPhase.CANCELLED,
+                            rowsWritten = (rowNum - 1).toLong(),
+                            batchesFlushed = batchesFlushed,
+                        )
+                    )
+                } else {
+                    options.progressListener.onProgress(
+                        ExportProgress(
+                            phase = ExportPhase.FAILED,
+                            rowsWritten = (rowNum - 1).toLong(),
+                            batchesFlushed = batchesFlushed,
+                        )
+                    )
                 }
                 throw e
 

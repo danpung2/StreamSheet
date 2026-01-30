@@ -111,5 +111,44 @@ data class ExcelExportConfig(
             applyHeaderStyle = true,
             applyDataBorders = true
         )
+
+        @JvmStatic
+        fun builder(): Builder = Builder()
+
+        class Builder {
+            private var rowAccessWindowSize: Int = DEFAULT_ROW_ACCESS_WINDOW_SIZE
+            private var flushBatchSize: Int = DEFAULT_FLUSH_BATCH_SIZE
+            private var compressTempFiles: Boolean = true
+            private var applyHeaderStyle: Boolean = true
+            private var applyDataBorders: Boolean = true
+            private var preventFormulaInjection: Boolean = true
+            private var enableMetrics: Boolean = false
+            private var maxRows: Int? = null
+            private var metrics: StreamSheetMetrics = StreamSheetMetrics.NOOP
+
+            fun rowAccessWindowSize(value: Int) = apply { rowAccessWindowSize = value }
+            fun flushBatchSize(value: Int) = apply { flushBatchSize = value }
+            fun compressTempFiles(value: Boolean) = apply { compressTempFiles = value }
+            fun applyHeaderStyle(value: Boolean) = apply { applyHeaderStyle = value }
+            fun applyDataBorders(value: Boolean) = apply { applyDataBorders = value }
+            fun preventFormulaInjection(value: Boolean) = apply { preventFormulaInjection = value }
+            fun enableMetrics(value: Boolean) = apply { enableMetrics = value }
+            fun maxRows(value: Int?) = apply { maxRows = value }
+            fun metrics(value: StreamSheetMetrics) = apply { metrics = value }
+
+            fun build(): ExcelExportConfig {
+                return ExcelExportConfig(
+                    rowAccessWindowSize = rowAccessWindowSize,
+                    flushBatchSize = flushBatchSize,
+                    compressTempFiles = compressTempFiles,
+                    applyHeaderStyle = applyHeaderStyle,
+                    applyDataBorders = applyDataBorders,
+                    preventFormulaInjection = preventFormulaInjection,
+                    enableMetrics = enableMetrics,
+                    maxRows = maxRows,
+                    metrics = metrics,
+                )
+            }
+        }
     }
 }

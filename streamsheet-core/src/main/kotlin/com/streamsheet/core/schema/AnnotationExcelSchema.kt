@@ -111,6 +111,11 @@ class AnnotationExcelSchema<T : Any>(
             } as AnnotationExcelSchema<T>
         }
 
+        @JvmStatic
+        fun <T : Any> from(clazz: Class<T>): AnnotationExcelSchema<T> {
+            return from(clazz.kotlin)
+        }
+
         /**
          * 인라인 reified 버전 (캐싱 적용)
          */
