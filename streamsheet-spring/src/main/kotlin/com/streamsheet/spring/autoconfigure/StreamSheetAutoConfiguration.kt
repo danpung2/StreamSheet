@@ -5,12 +5,16 @@ import com.google.cloud.storage.Storage
 import com.google.cloud.storage.StorageOptions
 import java.io.FileInputStream
 import com.streamsheet.core.config.ExcelExportConfig
+import com.streamsheet.core.metrics.StreamSheetMetrics
 import com.streamsheet.core.exporter.ExcelExporter
 import com.streamsheet.core.exporter.SxssfExcelExporter
 import com.streamsheet.spring.async.AsyncExportService
 import com.streamsheet.spring.async.InMemoryJobManager
 import com.streamsheet.spring.async.JobManager
+import com.streamsheet.spring.async.RedisJobManager
+import com.streamsheet.spring.metrics.MicrometerStreamSheetMetrics
 import com.streamsheet.spring.storage.FileStorage
+import com.streamsheet.spring.storage.RetryingFileStorage
 import com.streamsheet.spring.storage.GcsFileStorage
 import com.streamsheet.spring.storage.LocalFileStorage
 import com.streamsheet.spring.storage.S3FileStorage
@@ -25,6 +29,13 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableAsync
+import org.springframework.data.redis.core.StringRedisTemplate
+import io.micrometer.core.instrument.MeterRegistry
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.context.annotation.Primary
+import org.springframework.retry.backoff.ExponentialBackOffPolicy
+import org.springframework.retry.policy.SimpleRetryPolicy
+import org.springframework.retry.support.RetryTemplate
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
@@ -48,8 +59,22 @@ class StreamSheetAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun excelExportConfig(properties: StreamSheetProperties): ExcelExportConfig {
-        return properties.toExcelExportConfig()
+    fun excelExportConfig(
+        properties: StreamSheetProperties,
+        metricsProvider: org.springframework.beans.factory.ObjectProvider<StreamSheetMetrics>
+    ): ExcelExportConfig {
+        val metrics = metricsProvider.ifAvailable ?: StreamSheetMetrics.NOOP
+        return ExcelExportConfig(
+            rowAccessWindowSize = properties.rowAccessWindowSize,
+            flushBatchSize = properties.flushBatchSize,
+            compressTempFiles = properties.compressTempFiles,
+            applyHeaderStyle = properties.applyHeaderStyle,
+            applyDataBorders = properties.applyDataBorders,
+            preventFormulaInjection = properties.preventFormulaInjection,
+            enableMetrics = properties.enableMetrics,
+            maxRows = properties.maxRows,
+            metrics = metrics,
+        )
     }
 
     @Bean
@@ -59,18 +84,83 @@ class StreamSheetAutoConfiguration {
         return SxssfExcelExporter()
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    fun jobManager(
-        properties: StreamSheetProperties,
-        fileStorageProvider: org.springframework.beans.factory.ObjectProvider<FileStorage>
-    ): JobManager {
-        return InMemoryJobManager(retentionHours = properties.retentionHours) { job ->
-            job.resultUri?.let { uri ->
-                fileStorageProvider.ifAvailable { storage ->
-                    storage.delete(uri)
+    @Configuration
+    @ConditionalOnProperty(prefix = "streamsheet", name = ["enable-metrics"], havingValue = "true")
+    class StreamSheetMetricsConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        fun streamSheetMetrics(registry: MeterRegistry): StreamSheetMetrics {
+            return MicrometerStreamSheetMetrics(registry)
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "streamsheet", name = ["retry-enabled"], havingValue = "true")
+    class StreamSheetRetryConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        fun streamSheetRetryTemplate(properties: StreamSheetProperties): RetryTemplate {
+            val retryPolicy = SimpleRetryPolicy(properties.retryMaxAttempts)
+            val backOffPolicy = ExponentialBackOffPolicy().apply {
+                initialInterval = properties.retryInitialDelayMs
+                multiplier = properties.retryMultiplier
+                maxInterval = properties.retryMaxDelayMs
+            }
+
+            return RetryTemplate().apply {
+                setRetryPolicy(retryPolicy)
+                setBackOffPolicy(backOffPolicy)
+            }
+        }
+
+        @Bean("streamSheetRetryingFileStorage")
+        @Primary
+        fun retryingFileStorage(
+            @Qualifier("fileStorage") delegate: FileStorage,
+            retryTemplate: RetryTemplate,
+        ): FileStorage {
+            return RetryingFileStorage(delegate, retryTemplate)
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "streamsheet", name = ["job-store"], havingValue = "IN_MEMORY", matchIfMissing = true)
+    class InMemoryJobStoreConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        fun jobManager(
+            properties: StreamSheetProperties,
+            fileStorageProvider: org.springframework.beans.factory.ObjectProvider<FileStorage>
+        ): JobManager {
+            return InMemoryJobManager(retentionHours = properties.retentionHours) { job ->
+                job.resultUri?.let { uri ->
+                    fileStorageProvider.ifAvailable { storage ->
+                        storage.delete(uri)
+                    }
                 }
             }
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "streamsheet", name = ["job-store"], havingValue = "REDIS")
+    @ConditionalOnClass(StringRedisTemplate::class)
+    class RedisJobStoreConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        fun jobManager(
+            redisTemplate: StringRedisTemplate,
+            properties: StreamSheetProperties,
+        ): JobManager {
+            return RedisJobManager(
+                redisTemplate = redisTemplate,
+                keyPrefix = properties.jobKeyPrefix,
+                retentionHours = properties.retentionHours,
+            )
         }
     }
 

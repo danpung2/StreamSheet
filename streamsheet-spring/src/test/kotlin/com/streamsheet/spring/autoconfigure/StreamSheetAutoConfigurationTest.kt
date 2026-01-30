@@ -7,8 +7,15 @@ import com.streamsheet.spring.storage.FileStorage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.redis.core.HashOperations
+import java.util.function.Supplier
 
 @DisplayName("StreamSheetAutoConfiguration 테스트")
 class StreamSheetAutoConfigurationTest {
@@ -79,6 +86,45 @@ class StreamSheetAutoConfigurationTest {
             .run { context ->
                 assertThat(context).hasSingleBean(com.streamsheet.spring.storage.GcsFileStorage::class.java)
                 assertThat(context).hasSingleBean(com.google.cloud.storage.Storage::class.java)
+            }
+    }
+
+    @Test
+    @DisplayName("streamsheet.job-store=REDIS 설정 시 RedisJobManager가 등록되어야 한다")
+    fun `should register RedisJobManager when job store is REDIS`() {
+        contextRunner
+            .withPropertyValues(
+                "streamsheet.job-store=REDIS"
+            )
+            .withBean(
+                StringRedisTemplate::class.java,
+                Supplier {
+                    val template = mock<StringRedisTemplate>()
+                    val hashOps = mock<HashOperations<String, String, String>>()
+                    whenever(template.opsForHash<String, String>()).thenReturn(hashOps)
+                    template
+                }
+            )
+            .run { context ->
+                assertThat(context).hasSingleBean(JobManager::class.java)
+                assertThat(context.getBean(JobManager::class.java))
+                    .isInstanceOf(com.streamsheet.spring.async.RedisJobManager::class.java)
+            }
+    }
+
+    @Test
+    @DisplayName("streamsheet.enable-metrics=true 설정 시 MicrometerStreamSheetMetrics가 등록되어야 한다")
+    fun `should register MicrometerStreamSheetMetrics when enableMetrics is true`() {
+        contextRunner
+            .withPropertyValues(
+                "streamsheet.enable-metrics=true"
+            )
+            .withBean(MeterRegistry::class.java, Supplier { SimpleMeterRegistry() })
+            .run { context ->
+                val config = context.getBean(com.streamsheet.core.config.ExcelExportConfig::class.java)
+                assertThat(config.enableMetrics).isTrue()
+                assertThat(config.metrics)
+                    .isInstanceOf(com.streamsheet.spring.metrics.MicrometerStreamSheetMetrics::class.java)
             }
     }
 }

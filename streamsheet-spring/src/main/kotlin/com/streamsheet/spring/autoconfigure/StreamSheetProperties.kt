@@ -73,6 +73,48 @@ data class StreamSheetProperties(
     val retentionHours: Long = 24,
 
     /**
+     * 스토리지 작업 재시도 활성화 여부 (기본값: false)
+     * Whether to enable retry for storage operations (default: false)
+     */
+    val retryEnabled: Boolean = false,
+
+    /**
+     * 재시도 최대 시도 횟수 (기본값: 3)
+     * Max retry attempts (default: 3)
+     */
+    val retryMaxAttempts: Int = 3,
+
+    /**
+     * 재시도 초기 지연(ms) (기본값: 200)
+     * Initial backoff delay in ms (default: 200)
+     */
+    val retryInitialDelayMs: Long = 200,
+
+    /**
+     * 재시도 최대 지연(ms) (기본값: 2000)
+     * Max backoff delay in ms (default: 2000)
+     */
+    val retryMaxDelayMs: Long = 2000,
+
+    /**
+     * 재시도 backoff multiplier (기본값: 2.0)
+     * Backoff multiplier (default: 2.0)
+     */
+    val retryMultiplier: Double = 2.0,
+
+    /**
+     * 작업 저장소 종류 (기본값: IN_MEMORY)
+     * Job store type (default: IN_MEMORY)
+     */
+    val jobStore: JobStore = JobStore.IN_MEMORY,
+
+    /**
+     * Redis JobManager에서 사용하는 키 prefix (기본값: streamsheet:job:v1:)
+     * Key prefix for Redis JobManager (default: streamsheet:job:v1:)
+     */
+    val jobKeyPrefix: String = "streamsheet:job:v1:",
+
+    /**
      * 스토리지 설정
      * Storage configuration
      */
@@ -95,4 +137,9 @@ data class StreamSheetProperties(
             maxRows = maxRows
         )
     }
+}
+
+enum class JobStore {
+    IN_MEMORY,
+    REDIS
 }
