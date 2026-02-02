@@ -254,7 +254,7 @@
                 <p style="margin-bottom: 1rem; color: var(--text-sub); font-size: 0.875rem;">
                     Pure memory generation. No DB latency. Tests library throughput.
                 </p>
-                <button class="btn" onclick="startExport('basic')">Start Export (10k rows)</button>
+                <button id="btn-basic" class="btn" onclick="startExport('basic')">Start Export (10k rows)</button>
             </div>
 
             <div class="card">
@@ -262,8 +262,9 @@
                 <p style="margin-bottom: 1rem; color: var(--text-sub); font-size: 0.875rem;">
                     Stream directly from MongoDB Cursor to Excel. Constant Memory.
                 </p>
-                <button class="btn" onclick="startExport('mongo')">Standard Export</button>
-                <button class="btn btn-outline" onclick="startExport('mongo-optimized')">Optimized (Projection)
+                <button id="btn-mongo" class="btn" onclick="startExport('mongo')">Standard Export</button>
+                <button id="btn-mongo-optimized" class="btn btn-outline"
+                    onclick="startExport('mongo-optimized')">Optimized (Projection)
                     Export</button>
             </div>
 
@@ -272,9 +273,10 @@
                 <p style="margin-bottom: 1rem; color: var(--text-sub); font-size: 0.875rem;">
                     JDBC: Async ResultSet Streaming | JPA: Sync Direct Download (requires transaction)
                 </p>
-                <button class="btn" onclick="startExport('jdbc')">JDBC Export (Async)</button>
-                <a href="/api/demo/jpa/export/download" class="btn btn-outline"
-                    style="text-decoration: none; text-align: center;">JPA Export (Sync Download)</a>
+                <button id="btn-jdbc" class="btn" onclick="startExport('jdbc')">JDBC Export (Async)</button>
+                <a id="btn-jpa" href="/api/demo/jpa/export/download" class="btn btn-outline"
+                    style="text-decoration: none; display: flex; align-items: center; justify-content: center;"
+                    onclick="return handleJpaExport(event)">JPA Export (Sync Download)</a>
             </div>
         </div>
 
@@ -304,6 +306,8 @@
 
     <script>
         const jobs = new Map(); // Store job details
+        const runningExports = new Set(); // Track running exports to prevent duplicates
+        // 실행 중인 내보내기를 추적하여 중복 요청 방지
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -337,12 +341,22 @@
         }
 
         async function startExport(type) {
+            // 중복 요청 방지 / Prevent duplicate requests
+            if (runningExports.has(type)) {
+                showToast(`⚠️ ${type} export is already running`);
+                return;
+            }
+
             let url = '';
             if (type === 'basic') url = '/api/demo/export?count=10000';
             else if (type === 'mongo') url = '/api/demo/mongodb/export';
             else if (type === 'mongo-optimized') url = '/api/demo/mongodb/export/optimized';
             else if (type === 'jdbc') url = '/api/demo/jdbc/export';
             else if (type === 'jpa') url = '/api/demo/jpa/export';
+
+            // 버튼 비활성화 / Disable button
+            setButtonDisabled(type, true);
+            runningExports.add(type);
 
             try {
                 const res = await fetch(url, { method: 'POST' });
@@ -355,7 +369,48 @@
             } catch (e) {
                 console.error(e);
                 showToast('Export failed to start');
+                // 실패 시 버튼 다시 활성화 / Re-enable button on failure
+                setButtonDisabled(type, false);
+                runningExports.delete(type);
             }
+        }
+
+        // 버튼 활성화/비활성화 헬퍼 / Button enable/disable helper
+        function setButtonDisabled(type, disabled) {
+            const btn = document.getElementById(`btn-${type}`);
+            if (btn) {
+                if (disabled) {
+                    btn.classList.add('disabled');
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                } else {
+                    btn.classList.remove('disabled');
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                }
+            }
+        }
+
+        // JPA 동기 다운로드 핸들러 / JPA sync download handler
+        function handleJpaExport(event) {
+            if (runningExports.has('jpa')) {
+                event.preventDefault();
+                showToast('⚠️ JPA export is already running');
+                return false;
+            }
+
+            setButtonDisabled('jpa', true);
+            runningExports.add('jpa');
+            showToast('JPA Export Started (Sync Download)');
+
+            // 다운로드 완료 후 버튼 재활성화 (5초 후 자동 해제)
+            // Re-enable after download completes (auto-release after 5s)
+            setTimeout(() => {
+                setButtonDisabled('jpa', false);
+                runningExports.delete('jpa');
+            }, 5000);
+
+            return true; // Allow default link behavior
         }
 
         function addJobToTable(jobId, type) {
@@ -393,7 +448,12 @@
                     // 작업이 완료되면 폴링 중지
                     if (data.status === 'COMPLETED' || data.status === 'FAILED' || data.status === 'CANCELLED') {
                         clearInterval(interval);
-                        jobs.get(jobId).active = false;
+                        const job = jobs.get(jobId);
+                        job.active = false;
+
+                        // 버튼 다시 활성화 / Re-enable button
+                        setButtonDisabled(job.type, false);
+                        runningExports.delete(job.type);
                     }
                 } catch (e) {
                     console.error("Polling error", e);
