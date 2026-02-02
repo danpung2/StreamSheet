@@ -9,6 +9,17 @@ package com.streamsheet.core.datasource
  * Provides large-scale data in a streaming manner without loading all into memory.
  * Inherits AutoCloseable to prevent resource leaks.
  *
+ * **Resource Management Contract**:
+ * 1. 스트림([stream])이 끝까지 소비되면(Sequence exhausted), 구현체는 일반적으로 자동 [close]를 수행해야 합니다.
+ * 2. 하지만 **중도에 소비를 중단하거나(partial consumption)**, 예외가 발생한 경우에는
+ *    **반드시 호출자(Caller)가 [close]를 명시적으로 호출해야 합니다.**
+ * 3. 따라서 모든 데이터 소스 usage는 `use` 블록(try-with-resources)으로 감싸는 것을 강력히 권장합니다.
+ *
+ * 1. When the stream is fully consumed (Sequence exhausted), implementations should generally auto-close.
+ * 2. However, if consumption is **stopped early (partial consumption)** or an exception occurs,
+ *    **the Caller MUST explicitly call [close].**
+ * 3. Therefore, wrapping all data source usage in a `use` block (try-with-resources) is strongly recommended.
+ *
  * @param T 스트리밍할 엔티티 타입 / Entity type to stream
  */
 interface StreamingDataSource<T> : AutoCloseable {

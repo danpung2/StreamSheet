@@ -16,6 +16,21 @@ dependencies {
 - `streamsheet.enable-metrics`: Micrometer 메트릭 활성화 (`MeterRegistry` Bean 필요)
 - `streamsheet.retry-enabled`: `FileStorage` 작업 재시도 래퍼 활성화
 
+### 보안 설정 (Security Configuration)
+기본적으로 `streamsheet.security.enabled`는 `true`입니다. Spring Security가 존재하면 다운로드 엔드포인트(`/api/v1/streamsheet/download/**`)는 보호됩니다.
+
+다음과 같이 보안 설정을 커스터마이징할 수 있습니다:
+
+```kotlin
+@Bean
+fun streamSheetFilterChain(http: HttpSecurity): SecurityFilterChain {
+    http.securityMatcher("/api/v1/streamsheet/download/**")
+        .authorizeHttpRequests { it.anyRequest().authenticated() }
+        .httpBasic(Customizer.withDefaults())
+    return http.build()
+}
+```
+
 ### 테스트
 ```bash
 ./gradlew :streamsheet-spring:test

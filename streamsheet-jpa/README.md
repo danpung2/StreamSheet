@@ -17,6 +17,15 @@ val dataSource = JpaStreamingDataSource(
   detachEntities = true,
 )
 ```
+### Resource Management
+`JpaStreamingDataSource` uses Hibernate cursors. Even though it handles `EntityManager` lifecycle, explicit closing is required to release the cursor immediately if consumption stops early.
+Using `use` block is mandatory for safety.
+
+```kotlin
+JpaStreamingDataSource(...).use { dataSource ->
+    exporter.export(..., dataSource, ...)
+}
+```
 
 ### Testing
 ```bash

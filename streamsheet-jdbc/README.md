@@ -18,6 +18,15 @@ val dataSource = JdbcStreamingDataSource(
   rowMapper = { rs -> UserRow(rs.getLong("id"), rs.getString("name")) }
 )
 ```
+### Resource Management
+`JdbcStreamingDataSource` manages database connections or cursors. It is critical to close the data source to prevent resource leaks, especially when the stream is not fully consumed.
+Always use the `use` block (Kotlin) or try-with-resources (Java).
+
+```kotlin
+JdbcStreamingDataSource(...).use { dataSource ->
+    exporter.export(..., dataSource, ...)
+}
+```
 
 ### Testing
 ```bash

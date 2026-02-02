@@ -16,6 +16,21 @@ dependencies {
 - `streamsheet.enable-metrics`: enable Micrometer-based metrics (requires `MeterRegistry` bean)
 - `streamsheet.retry-enabled`: enable retry wrapper around `FileStorage`
 
+### Security Configuration
+By default, `streamsheet.security.enabled` is `true`. If Spring Security is present, the download endpoint (`/api/v1/streamsheet/download/**`) is protected.
+
+You can customize the security configuration:
+
+```kotlin
+@Bean
+fun streamSheetFilterChain(http: HttpSecurity): SecurityFilterChain {
+    http.securityMatcher("/api/v1/streamsheet/download/**")
+        .authorizeHttpRequests { it.anyRequest().authenticated() }
+        .httpBasic(Customizer.withDefaults())
+    return http.build()
+}
+```
+
 ### Testing
 ```bash
 ./gradlew :streamsheet-spring:test
