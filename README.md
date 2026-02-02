@@ -58,12 +58,17 @@ dependencies {
 ```kotlin
 dependencies {
     implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
+
+    // Data Source Modules (Optional)
+    // implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")
+    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")
+    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT")
 }
 ```
 
-### 2. Basic Usage (Annotation-Based)
+### 2. Define DTO (Common)
 
-**1) Define DTO**
+First, define the data model (DTO) to be exported. This is common for both Core and Starter.
 
 ```kotlin
 @ExcelSheet(name = "Order List")
@@ -79,57 +84,58 @@ data class OrderExcelDto(
 )
 ```
 
-**2) Execute Export**
+### 3. Execution
+
+Choose the method that fits your environment.
+
+#### Type A: Standalone (Core)
+
+Manually instantiate `ExcelExporter`.
 
 ```kotlin
-// Prepare Schema & Data
+// 1. Prepare Schema & Data
 val schema = AnnotationExcelSchema.create<OrderExcelDto>()
-val data = listOf(OrderExcelDto("ORD-001", "John Doe", 15000), ...)
+val data = listOf(OrderExcelDto("ORD-001", "John Doe", 15000))
 
-// Create Exporter
+// 2. Create Exporter & Execute
 val exporter = SxssfExcelExporter()
-
-// Wrap Data Source (Simple implementation for List/Sequence)
 val dataSource = object : StreamingDataSource<OrderExcelDto> {
-    override val sourceName = "SimpleList"
+    override val sourceName = "ListSource"
     override fun stream(): Sequence<OrderExcelDto> = data.asSequence()
-    override fun close() {} // No resources to close
+    override fun close() {}
 }
 
-// Generate Excel File
 FileOutputStream("orders.xlsx").use { output ->
     exporter.export(schema, dataSource, output)
 }
 ```
 
-## Spring Boot Integration Example
+#### Type B: Spring Boot (Starter)
 
-Using `streamsheet-spring-boot-starter` automatically registers `ExcelExporter` as a bean.
-
-### Exporting JPA Data
+With the Starter, `ExcelExporter` is automatically registered as a bean, so you can inject it.
+You can also manage settings like `streamsheet.row-access-window-size` in `application.yml`.
 
 ```kotlin
 @Service
 class OrderExportService(
-    private val excelExporter: ExcelExporter,
-    private val orderRepository: OrderRepository, // JPA Repository
+    private val excelExporter: ExcelExporter, // Auto-wired
+    private val orderRepository: OrderRepository,
     private val entityManager: EntityManager
 ) {
-    @Transactional(readOnly = true) // Transaction required for Stream maintenance
+    @Transactional(readOnly = true)
     fun exportOrders(response: HttpServletResponse) {
         val schema = AnnotationExcelSchema.create<OrderEntity>()
         
-        // Create JPA Streaming DataSource
+        // JPA Streaming DataSource (Requires Transaction)
         val dataSource = JpaStreamingDataSource(
             entityManager = entityManager,
-            streamProvider = { orderRepository.streamAll() } // Repository method returning Stream<T>
+            streamProvider = { orderRepository.streamAll() }
         )
         
-        // Set HTTP Response
         response.contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         response.setHeader("Content-Disposition", "attachment; filename=orders.xlsx")
         
-        // Export (dataSource is closed automatically)
+        // Execute Export (Resource automatically closed)
         excelExporter.export(schema, dataSource, response.outputStream)
     }
 }

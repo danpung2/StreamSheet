@@ -58,12 +58,17 @@ dependencies {
 ```kotlin
 dependencies {
     implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
+
+    // 데이터 소스 모듈 (필요 시 선택)
+    // implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")
+    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")
+    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT")
 }
 ```
 
-### 2. 기본 사용법 (어노테이션 기반)
+### 2. 스키마 정의 (공통 / Common)
 
-**1) DTO 정의**
+먼저, 엑셀로 변환할 데이터 모델(DTO)을 정의합니다. 이는 Core와 Starter 모두 동일합니다.
 
 ```kotlin
 @ExcelSheet(name = "주문 목록")
@@ -79,57 +84,58 @@ data class OrderExcelDto(
 )
 ```
 
-**2) 내보내기 실행**
+### 3. 사용 방법 (Usage)
+
+환경에 맞는 방법을 선택하세요.
+
+#### Type A: 일반 프로젝트 (Standalone / Core)
+
+`ExcelExporter`를 직접 생성하여 사용합니다.
 
 ```kotlin
-// Schema & Data 준비
+// 1. 스키마 & 데이터 준비
 val schema = AnnotationExcelSchema.create<OrderExcelDto>()
-val data = listOf(OrderExcelDto("ORD-001", "홍길동", 15000), ...)
+val data = listOf(OrderExcelDto("ORD-001", "홍길동", 15000))
 
-// Exporter 생성
+// 2. Exporter 생성 및 실행
 val exporter = SxssfExcelExporter()
-
-// 데이터 소스 래핑 (Collection/Sequence의 경우)
 val dataSource = object : StreamingDataSource<OrderExcelDto> {
-    override val sourceName = "SimpleList"
+    override val sourceName = "ListSource"
     override fun stream(): Sequence<OrderExcelDto> = data.asSequence()
-    override fun close() {} // 닫을 리소스 없음
+    override fun close() {}
 }
 
-// 엑셀 파일 생성
 FileOutputStream("orders.xlsx").use { output ->
     exporter.export(schema, dataSource, output)
 }
 ```
 
-## Spring Boot 통합 예제
+#### Type B: 스프링 부트 (Spring Boot / Starter)
 
-`streamsheet-spring-boot-starter`를 사용하면 `ExcelExporter`가 자동으로 빈으로 등록됩니다.
-
-### JPA 데이터 내보내기
+Starter를 사용하면 `ExcelExporter`가 자동으로 빈(Bean)으로 등록되므로, 주입받아 사용합니다.
+또한, `streamsheet.row-access-window-size` 등의 설정을 `application.yml`에서 관리할 수 있습니다.
 
 ```kotlin
 @Service
 class OrderExportService(
-    private val excelExporter: ExcelExporter,
-    private val orderRepository: OrderRepository, // JPA Repository
+    private val excelExporter: ExcelExporter, // 자동 주입 (Auto-wired)
+    private val orderRepository: OrderRepository,
     private val entityManager: EntityManager
 ) {
-    @Transactional(readOnly = true) // Stream 유지를 위해 트랜잭션 필수
+    @Transactional(readOnly = true)
     fun exportOrders(response: HttpServletResponse) {
         val schema = AnnotationExcelSchema.create<OrderEntity>()
         
-        // JPA Streaming DataSource 생성
+        // JPA Streaming DataSource (트랜잭션 필요)
         val dataSource = JpaStreamingDataSource(
             entityManager = entityManager,
-            streamProvider = { orderRepository.streamAll() } // Repository에서 Stream<T> 반환 메서드 필요
+            streamProvider = { orderRepository.streamAll() }
         )
         
-        // HTTP 응답 설정
         response.contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         response.setHeader("Content-Disposition", "attachment; filename=orders.xlsx")
         
-        // 내보내기 (dataSource는 내부적으로 close 됨)
+        // 내보내기 실행 (리소스 자동 해제됨)
         excelExporter.export(schema, dataSource, response.outputStream)
     }
 }
