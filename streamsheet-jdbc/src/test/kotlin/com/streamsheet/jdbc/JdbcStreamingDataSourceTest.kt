@@ -114,4 +114,48 @@ class JdbcStreamingDataSourceTest {
         // Then
         assertEquals(0, activeStreams.size)
     }
+    @Test
+    @DisplayName("스트림이 완전히 소비되면 자동으로 activeStreams에서 제거되어야 한다")
+    fun `should auto-close stream when fully consumed`() {
+        // Given
+        val sql = "SELECT * FROM test_data"
+        val rowMapper = { rs: java.sql.ResultSet, _: Int -> rs.getInt("data_value") }
+        val dataSource = JdbcStreamingDataSource(jdbcTemplate, sql, rowMapper)
+
+        // When
+        dataSource.stream().toList() // Full consumption
+
+        // Then
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreams = field.get(dataSource) as List<*>
+        
+        assertEquals(0, activeStreams.size, "Should be empty without explicit close() call if fully consumed")
+    }
+
+    @Test
+    @DisplayName("부분 소비 후 close 호출 시 리소스가 정리되어야 한다")
+    fun `should cleanup resources when closed after partial consumption`() {
+        // Given
+        val sql = "SELECT * FROM test_data"
+        val rowMapper = { rs: java.sql.ResultSet, _: Int -> rs.getInt("data_value") }
+        val dataSource = JdbcStreamingDataSource(jdbcTemplate, sql, rowMapper)
+
+        // When
+        dataSource.stream().take(1).toList() // Partial consumption
+
+        // 부분 소비 시에는 스트림이 아직 닫히지 않은 상태여야 함 (끝까지 읽지 않았으므로)
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreamsBeforeClose = field.get(dataSource) as List<*>
+        
+        // 명확히 1개가 남아있어야 정상
+        assertEquals(1, activeStreamsBeforeClose.size, "Stream should remain active if not fully consumed")
+        
+        dataSource.close()
+        
+        // Then
+        val activeStreamsAfterClose = field.get(dataSource) as List<*>
+        assertEquals(0, activeStreamsAfterClose.size, "Should be empty after close()")
+    }
 }

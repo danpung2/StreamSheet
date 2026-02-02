@@ -208,4 +208,18 @@ class SxssfExcelExporterTest {
         // Not 100 or more which would indicate the loop bug
         assertTrue(consumedCount <= 11, "Stream should stop consuming after max rows. Consumed: $consumedCount")
     }
+    @Test
+    @DisplayName("최대 행 제한으로 조기 종료 시에도 데이터 소스를 닫아야 한다")
+    fun `should close datasource when max rows limit is applied`() {
+        val data = (1..100).map { TestEntity("User $it", it) }
+        val schema = excelSchema<TestEntity> { column("Name") { it.name } }
+        val dataSource = TestDataSource(data)
+        val outputStream = ByteArrayOutputStream()
+        val exporter = SxssfExcelExporter()
+        val config = ExcelExportConfig(maxRows = 10)
+
+        exporter.export(schema, dataSource, outputStream, config)
+
+        assertTrue(dataSource.isClosed, "DataSource should be closed after max rows early termination")
+    }
 }

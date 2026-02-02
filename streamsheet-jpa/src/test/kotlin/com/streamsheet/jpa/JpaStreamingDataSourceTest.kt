@@ -103,4 +103,52 @@ class JpaStreamingDataSourceTest {
         // Then
         assertEquals(0, activeStreams.size)
     }
+    @Test
+    fun `스트림이 완전히 소비되면 자동으로 activeStreams에서 제거되어야 한다`() {
+        // Given
+        repository.save(JpaTestData(name = "Data-1"))
+        
+        val dataSource = JpaStreamingDataSource(
+            entityManager = entityManager,
+            streamProvider = { repository.streamAll() }
+        )
+
+        // When
+        dataSource.stream().toList() // Full consumption
+
+        // Then
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreams = field.get(dataSource) as List<*>
+        
+        assertEquals(0, activeStreams.size, "Should be empty without explicit close() call if fully consumed")
+    }
+
+    @Test
+    fun `부분 소비 후 close 호출 시 리소스가 정리되어야 한다`() {
+        // Given
+        repository.save(JpaTestData(name = "Data-1"))
+        repository.save(JpaTestData(name = "Data-2"))
+        
+        val dataSource = JpaStreamingDataSource(
+            entityManager = entityManager,
+            streamProvider = { repository.streamAll() }
+        )
+
+        // When
+        dataSource.stream().take(1).toList() // Partial consumption
+
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        
+        // 부분 소비 시에는 스트림이 아직 닫히지 않은 상태여야 함
+        val activeStreamsBefore = field.get(dataSource) as List<*>
+        assertEquals(1, activeStreamsBefore.size, "Stream should remain active if not fully consumed")
+
+        dataSource.close()
+        
+        // Then
+        val activeStreamsAfterClose = field.get(dataSource) as List<*>
+        assertEquals(0, activeStreamsAfterClose.size, "Should be empty after close()")
+    }
 }

@@ -152,4 +152,27 @@ class MongoAggregationStreamingDataSourceTest {
         verify(stream).close()
         assertTrue((field.get(dataSource) as List<*>).isEmpty())
     }
+    @Test
+    @DisplayName("부분 소비 후 close 호출 시 리소스가 정리되어야 한다")
+    fun `should cleanup resources when closed after partial consumption`() {
+        val data = listOf(TestDocument("User1", 20), TestDocument("User2", 30))
+        val stream = setupMockAggregateStream(data)
+        val pipeline = emptyList<AggregationOperation>()
+        val dataSource = MongoAggregationStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class, pipeline)
+
+        // When
+        dataSource.stream().take(1).toList() // Partial
+
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        // 부분 소비 시에는 스트림이 아직 닫히지 않아 1개 남아있어야 함
+        val activeStreamsBefore = field.get(dataSource) as List<*>
+        assertEquals(1, activeStreamsBefore.size, "Stream should remain active if not fully consumed")
+
+        dataSource.close()
+
+        // Then
+        verify(stream).close()
+        assertTrue((field.get(dataSource) as List<*>).isEmpty(), "activeStreams should be empty after close()")
+    }
 }

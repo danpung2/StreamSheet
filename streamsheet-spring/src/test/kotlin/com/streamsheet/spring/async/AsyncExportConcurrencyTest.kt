@@ -14,6 +14,7 @@ import org.mockito.Mockito.*
 import org.mockito.kotlin.any
 import org.springframework.context.ApplicationEventPublisher
 import com.streamsheet.spring.tracing.NoopStreamSheetTracer
+import java.io.OutputStream
 import java.net.URI
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -42,6 +43,18 @@ class AsyncExportConcurrencyTest {
         
         val dataSource = mock(StreamingDataSource::class.java) as StreamingDataSource<Any>
         `when`(fileStorage.save(any(), any(), any(), anyLong())).thenReturn(URI.create("s3://test/file.xlsx"))
+        
+        // 동시 실행 중첩을 보장하기 위해 현실적인 Export 소요 시간을 시뮬레이션합니다.
+        // Simulating realistic export duration to ensure concurrent execution overlap
+        doAnswer { 
+            Thread.sleep(50) 
+            null
+        }.`when`(excelExporter).export(
+            any<ExcelSchema<Any>>(),
+            any<StreamingDataSource<Any>>(),
+            any<OutputStream>(),
+            any<ExcelExportConfig>()
+        )
 
         val executor = Executors.newFixedThreadPool(threadCount)
         val latch = CountDownLatch(threadCount)

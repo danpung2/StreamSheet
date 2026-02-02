@@ -254,4 +254,60 @@ class MongoStreamingDataSourceTest {
         verify(mockStream1, atLeastOnce()).close()
         assertEquals(0, activeStreams.size)
     }
+    @Test
+    @DisplayName("스트림이 완전히 소비되면 자동으로 리소스가 해제되어야 한다")
+    fun `stream should be auto-closed when fully consumed`() {
+        // Given
+        val data = listOf(
+            TestDocument("User1", 20),
+            TestDocument("User2", 30)
+        )
+        // Setup mock to simulate normal stream behavior including close on exhaustion
+        val stream = setupMockQuery(data) 
+        
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
+
+        // When
+        dataSource.stream().toList() // Consume all
+
+        // Then
+        // Verify stream.close() was called (which triggers onClose -> activeStreams removal)
+        verify(stream, times(1)).close()
+        
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreams = field.get(dataSource) as List<*>
+        
+        assertEquals(0, activeStreams.size, "activeStreams should be empty after full consumption")
+    }
+
+    @Test
+    @DisplayName("부분 소비 후 close 호출 시 리소스가 정리되어야 한다")
+    fun `stream should be closed and removed when close() is called after partial consumption`() {
+        // Given
+        val data = listOf(
+            TestDocument("User1", 20),
+            TestDocument("User2", 30)
+        )
+        val stream = setupMockQuery(data)
+        
+        val dataSource = MongoStreamingDataSource(mongoTemplate, TestDocument::class, TestDocument::class)
+
+        // When
+        dataSource.stream().take(1).toList() // Partial consumption
+        
+        // 부분 소비 시에는 스트림이 아직 닫히지 않은 상태여야 함
+        val field: Field = dataSource.javaClass.getDeclaredField("activeStreams")
+        field.isAccessible = true
+        val activeStreamsBefore = field.get(dataSource) as List<*>
+        assertEquals(1, activeStreamsBefore.size, "Stream should remain active if not fully consumed")
+
+        dataSource.close()
+
+        // Then
+        verify(stream, times(1)).close()
+        
+        val activeStreamsAfter = field.get(dataSource) as List<*>
+        assertEquals(0, activeStreamsAfter.size, "activeStreams should be empty after explicit close()")
+    }
 }
