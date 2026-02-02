@@ -165,26 +165,55 @@ class DemoController(
     }
 
     /**
-     * JPA 기반 동기 엑셀 내보내기 (직접 다운로드)
-     * Synchronous Excel export using JPA Stream (Direct Download)
+     * JPA 기반 동기 엑셀 내보내기 (직접 다운로드) - 배치 클리어 적용
+     * Synchronous Excel export using JPA Stream (Direct Download) with Batch Clear
      * 
      * NOTE: JPA Stream은 활성 트랜잭션 내에서만 동작합니다.
      * 비동기 처리가 필요하면 JDBC 방식을 사용하세요.
+     * 100건마다 EntityManager를 clear하여 OOM을 방지합니다.
+     * 
      * JPA Stream only works within an active transaction.
      * For async processing, use JDBC approach instead.
+     * EntityManager is cleared every 100 records to prevent OOM.
      */
     @GetMapping("/jpa/export/download")
     @Transactional(readOnly = true)
     fun downloadJpaDirect(): ResponseEntity<Resource> {
         val schema = AnnotationExcelSchema(UserActivityEntity::class)
         
-        val dataSource = JpaStreamingDataSource(
-            entityManager = entityManager,
-            streamProvider = {
-                entityManager.createQuery("SELECT u FROM UserActivityEntity u ORDER BY u.createdAt DESC", UserActivityEntity::class.java)
-                    .resultStream
+        // 배치 클리어가 적용된 커스텀 StreamingDataSource
+        // Custom StreamingDataSource with batch clear
+        val batchClearInterval = 100
+        var processedCount = 0
+        
+        val dataSource = object : StreamingDataSource<UserActivityEntity> {
+            override val sourceName = "JPA:UserActivityEntity (BatchClear)"
+            
+            override fun stream(): Sequence<UserActivityEntity> {
+                val query = entityManager.createQuery(
+                    "SELECT u FROM UserActivityEntity u ORDER BY u.createdAt DESC",
+                    UserActivityEntity::class.java
+                )
+                
+                return query.resultStream.iterator().asSequence().map { entity ->
+                    processedCount++
+                    
+                    // 100건마다 영속성 컨텍스트 클리어 (메모리 해제)
+                    // Clear persistence context every 100 records (memory release)
+                    if (processedCount % batchClearInterval == 0) {
+                        entityManager.clear()
+                    }
+                    
+                    entity
+                }
             }
-        )
+            
+            override fun close() {
+                // 최종 클리어
+                // Final clear
+                entityManager.clear()
+            }
+        }
         
         val tempFile = File.createTempFile("jpa-export-", ".xlsx")
         val exporter = SxssfExcelExporter()
