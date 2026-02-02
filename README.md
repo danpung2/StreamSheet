@@ -1,147 +1,197 @@
 # StreamSheet
 
-> 대용량 데이터를 위한 스트리밍 엑셀 내보내기 SDK  
-> Streaming Excel Export SDK for Large-Scale Data
+> Memory-efficient Streaming Excel Export SDK for Large-Scale Data
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
-## 개요 (Overview)
+## Overview
 
-StreamSheet은 Apache POI SXSSF를 기반으로 한 **대용량 엑셀 내보내기 SDK**입니다. 20만 건 이상의 데이터도 메모리 효율적으로 처리하며, 어노테이션 또는 DSL 기반의 간편한 스키마 정의를 제공합니다.
+StreamSheet is a high-performance Excel export library based on **Apache POI SXSSF**.
+It handle large datasets (hundreds of thousands of records) stably without OOM (OutOfMemory) errors and supports integration with various data sources (JPA, JDBC, MongoDB, etc.).
+You can define Excel schemas intuitively and easily using Kotlin DSL and Annotations.
 
-StreamSheet is a **large-scale Excel export SDK** based on Apache POI SXSSF. It efficiently handles 200,000+ records with low memory footprint and provides easy schema definition through annotations or DSL.
+## Key Features
 
-## 주요 기능 (Key Features)
+- 🚀 **Memory Efficiency**: Maintains constant memory usage through Apache POI SXSSF-based streaming.
+- 🧩 **Flexible Schema Definition**:
+  - **Annotation-Based**: Define directly on DTOs using `@ExcelSheet`, `@ExcelColumn`.
+  - **DSL-Based**: Configure schemas dynamically at runtime using Lambda DSL.
+- 🔌 **Diverse Data Source Support**:
+  - **JPA**: `JpaStreamingDataSource` (Stream-based, supports automatic detach).
+  - **JDBC**: `JdbcStreamingDataSource` (ResultSet-based, maintains cursor).
+  - **MongoDB**: `MongoStreamingDataSource` (Reactive/Cursor-based).
+- 🍃 **Spring Boot Integration**: Automatic configuration via `streamsheet-spring-boot-starter` (provides `ExcelExporter` bean).
+- 📊 **Progress Monitoring**: Track export progress in real-time using `ExportProgressListener`.
+- 🛠 **Safe Resource Management**: Automatic resource cleanup via `StreamingDataSource` interface (`AutoCloseable`).
 
-- ✅ **메모리 효율성**: SXSSF 기반 스트리밍으로 OOM 방지
-- ✅ **제네릭 설계**: 어떤 데이터 타입도 처리 가능
-- ✅ **어노테이션 기반 스키마**: `@ExcelSheet`, `@ExcelColumn`으로 간편 정의
-- ✅ **DSL 기반 스키마**: 람다 DSL로 유연한 스키마 구성
-- ✅ **MongoDB 통합**: 커서 기반 스트리밍 데이터 소스 내장
+## Modules
 
-## 빠른 시작 (Quick Start)
+| Module Name | Description |
+|---|---|
+| `streamsheet-core` | Core logic (SXSSF, Schema, Exporter Interface) |
+| `streamsheet-jdbc` | JDBC `ResultSet` streaming support |
+| `streamsheet-jpa` | JPA `Stream` streaming support (Hibernate, etc.) |
+| `streamsheet-mongodb` | MongoDB data source support |
+| `streamsheet-spring-boot-starter` | Spring Boot auto-configuration and conveniences |
 
-### 1. 의존성 추가 (Add Dependency)
+## Quick Start
 
-```gradle
+### 1. Add Dependencies
+
+**Gradle (Kotlin DSL)**
+
+```kotlin
 dependencies {
-    implementation 'io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT'
+    // Core (Required)
+    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
+    
+    // Data Source Modules (Optional)
+    implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")     // For JPA
+    implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")    // For JDBC
+    implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // For MongoDB
+
+    // Spring Boot Starter (Recommended for Spring Boot)
+    implementation("io.github.danpung2:streamsheet-spring-boot-starter:0.0.1-SNAPSHOT")
 }
 ```
 
-### 2. 어노테이션 기반 사용 (Annotation-Based)
+### 2. Basic Usage (Annotation-Based)
+
+**1) Define DTO**
 
 ```kotlin
-// 1. DTO 정의
-@ExcelSheet(name = "주문 목록")
+@ExcelSheet(name = "Order List")
 data class OrderExcelDto(
-    @ExcelColumn(header = "주문번호", width = 20, order = 1)
+    @ExcelColumn(header = "Order ID", width = 20, order = 1)
     val orderId: String,
 
-    @ExcelColumn(header = "고객명", width = 15, order = 2)
+    @ExcelColumn(header = "Customer Name", width = 15, order = 2)
     val customerName: String,
 
-    @ExcelColumn(header = "금액", width = 15, order = 3)
+    @ExcelColumn(header = "Amount", width = 15, order = 3)
     val amount: Long
 )
+```
 
-// 2. 스키마 생성
+**2) Execute Export**
+
+```kotlin
+// Prepare Schema & Data
 val schema = AnnotationExcelSchema.create<OrderExcelDto>()
+val data = listOf(OrderExcelDto("ORD-001", "John Doe", 15000), ...)
 
-// 3. 내보내기 실행
+// Create Exporter
 val exporter = SxssfExcelExporter()
-exporter.export(schema, dataSource, outputStream)
-```
 
-### 3. DSL 기반 사용 (DSL-Based)
-
-```kotlin
-val schema = excelSchema<Order> {
-    sheetName = "주문 목록"
-    column("주문번호", 20) { it.orderId }
-    column("고객명", 15) { it.customerName }
-    column("금액", 15) { it.amount.toString() }
+// Wrap Data Source (Simple implementation for List/Sequence)
+val dataSource = object : StreamingDataSource<OrderExcelDto> {
+    override val sourceName = "SimpleList"
+    override fun stream(): Sequence<OrderExcelDto> = data.asSequence()
+    override fun close() {} // No resources to close
 }
 
-exporter.export(schema, dataSource, outputStream)
-```
-
-## 아키텍처 (Architecture)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    ExcelExporter                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │ ExcelSchema │  │ DataSource  │  │ ExcelExportConfig   │ │
-│  │ - headers   │  │ - stream()  │  │ - windowSize        │ │
-│  │ - widths    │  │ - filter()  │  │ - flushBatchSize    │ │
-│  │ - toRow()   │  │             │  │ - compressTempFiles │ │
-│  └──────┬──────┘  └──────┬──────┘  └─────────┬───────────┘ │
-│         │                │                   │              │
-│         └────────────────┼───────────────────┘              │
-│                          ▼                                  │
-│               ┌─────────────────────┐                       │
-│               │  SXSSFWorkbook      │                       │
-│               │  (Apache POI)       │                       │
-│               └──────────┬──────────┘                       │
-│                          ▼                                  │
-│               ┌─────────────────────┐                       │
-│               │  OutputStream       │                       │
-│               │  (HTTP Response)    │                       │
-│               └─────────────────────┘                       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 핵심 인터페이스 (Core Interfaces)
-
-### ExcelSchema<T>
-```kotlin
-interface ExcelSchema<T> {
-    val sheetName: String
-    val headers: List<String>
-    val columnWidths: List<Int>
-    fun toRow(entity: T): List<Any?>
+// Generate Excel File
+FileOutputStream("orders.xlsx").use { output ->
+    exporter.export(schema, dataSource, output)
 }
 ```
 
-### StreamingDataSource<T>
+## Spring Boot Integration Example
+
+Using `streamsheet-spring-boot-starter` automatically registers `ExcelExporter` as a bean.
+
+### Exporting JPA Data
+
 ```kotlin
-interface StreamingDataSource<T> {
-    fun stream(): Sequence<T>
-    fun stream(filter: Map<String, Any>): Sequence<T>
+@Service
+class OrderExportService(
+    private val excelExporter: ExcelExporter,
+    private val orderRepository: OrderRepository, // JPA Repository
+    private val entityManager: EntityManager
+) {
+    @Transactional(readOnly = true) // Transaction required for Stream maintenance
+    fun exportOrders(response: HttpServletResponse) {
+        val schema = AnnotationExcelSchema.create<OrderEntity>()
+        
+        // Create JPA Streaming DataSource
+        val dataSource = JpaStreamingDataSource(
+            entityManager = entityManager,
+            streamProvider = { orderRepository.streamAll() } // Repository method returning Stream<T>
+        )
+        
+        // Set HTTP Response
+        response.contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        response.setHeader("Content-Disposition", "attachment; filename=orders.xlsx")
+        
+        // Export (dataSource is closed automatically)
+        excelExporter.export(schema, dataSource, response.outputStream)
+    }
 }
 ```
 
-### ExcelExporter
+### Exporting MongoDB Data
+
 ```kotlin
-interface ExcelExporter {
-    fun <T> export(
-        schema: ExcelSchema<T>,
-        dataSource: StreamingDataSource<T>,
-        output: OutputStream,
-        config: ExcelExportConfig = ExcelExportConfig.DEFAULT
-    )
+@Service
+class MongoExportService(
+    private val excelExporter: ExcelExporter,
+    private val mongoTemplate: MongoTemplate
+) {
+    fun exportLogs(outputStream: OutputStream) {
+         val schema = AnnotationExcelSchema.create<LogDocument>()
+         
+         // MongoDB Streaming DataSource
+         val dataSource = MongoStreamingDataSource.create<LogDocument>(mongoTemplate)
+         
+         excelExporter.export(schema, dataSource, outputStream)
+    }
 }
 ```
 
-## 설정 옵션 (Configuration)
+## Architecture
+
+StreamSheet decouples the Data Source from the Export Engine (Exporter) to enhance extensibility.
+
+```
+┌───────────────────────────────────────┐
+│           ExcelExporter               │
+│ (SxssfExcelExporter Implementation)   │
+│                                       │
+│   ┌─────────────┐   ┌─────────────┐   │
+│   │ ExcelSchema │   │ DataSource  │   │
+│   └──────┬──────┘   └──────┬──────┘   │
+│          │                 │          │
+└──────────┼─────────────────┼──────────┘
+           ▼                 ▼
+    ┌─────────────┐   ┌─────────────┐
+    │ Schema Info │   │ Data Stream │
+    └──────┬──────┘   └──────┬──────┘
+           │                 │
+           ▼                 ▼
+  ┌───────────────────────────────────┐
+  │ Apache POI SXSSF Workbook         │
+  │ (Windowed Streaming)              │
+  └────────────────┬──────────────────┘
+                   ▼
+            OutputStream (.xlsx)
+```
+
+## Configuration Options (ExcelExportConfig)
 
 ```kotlin
-ExcelExportConfig(
-    rowAccessWindowSize = 100,  // 메모리 유지 행 수
-    flushBatchSize = 1000,      // 플러시 주기
-    compressTempFiles = true,   // 임시 파일 압축
-    applyHeaderStyle = true,    // 헤더 스타일 적용
-    applyDataBorders = true     // 데이터 테두리 적용
+val config = ExcelExportConfig(
+    rowAccessWindowSize = 100,  // Number of rows to keep in memory (Default: 100)
+    flushBatchSize = 1000,      // Flush to disk frequency (Default: 1000)
+    compressTempFiles = true    // Whether to compress temp files (Saves disk space)
 )
-
-// 사전 정의된 프리셋
-ExcelExportConfig.DEFAULT         // 기본 설정
-ExcelExportConfig.HIGH_PERFORMANCE // 고성능 (최소 메모리)
-ExcelExportConfig.HIGH_QUALITY    // 고품질 (풀 스타일링)
 ```
 
-## 라이선스 (License)
+## Open Source Notice
 
-MIT License - see [LICENSE](LICENSE) for details.
+This project uses the **Apache POI** library.
+- **Apache POI**: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+
+## License
+
+MIT License
