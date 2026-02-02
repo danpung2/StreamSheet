@@ -254,10 +254,28 @@ class StreamSheetAutoConfiguration {
                 )
             }
 
-            // NOTE: 커스텀 엔드포인트 설정 (MinIO 등)
-            // Configure custom endpoint (for MinIO, etc.)
+            // NOTE: 커스텀 엔드포인트 설정 (MinIO 등) 및 SSRF 방지 검증
+            // Configure custom endpoint (for MinIO, etc.) and validate for SSRF prevention
             if (!s3Props.endpoint.isNullOrEmpty()) {
-                builder.endpointOverride(URI.create(s3Props.endpoint!!))
+                val endpointUri = URI.create(s3Props.endpoint!!)
+
+                // Whitelist validation
+                if (s3Props.allowedEndpoints.isNotEmpty()) {
+                    val host = endpointUri.host
+                    requireNotNull(host) { "Endpoint URI must have a valid host" }
+
+                    val isAllowed = s3Props.allowedEndpoints.any { allowed ->
+                        host.equals(allowed, ignoreCase = true) || host.endsWith(".$allowed", ignoreCase = true)
+                    }
+
+                    if (!isAllowed) {
+                        throw IllegalArgumentException(
+                            "S3 endpoint host '$host' is not in the allowed list: ${s3Props.allowedEndpoints}"
+                        )
+                    }
+                }
+
+                builder.endpointOverride(endpointUri)
             }
 
             return builder.build()
@@ -297,10 +315,15 @@ class StreamSheetAutoConfiguration {
                 // Use specified credentials file if provided
                 !gcsProps.credentialsPath.isNullOrBlank() -> {
                     val credentialsFile = java.io.File(gcsProps.credentialsPath!!)
-                    require(credentialsFile.exists()) {
-                        "GCS credentials file not found: ${gcsProps.credentialsPath}"
+                    
+                    // NOTE: 경로 순회 및 심볼릭 링크 공격 방지를 위해 canonicalFile 확인
+                    // Verify canonical file to prevent path traversal and symbolic link attacks
+                    val canonicalFile = credentialsFile.canonicalFile
+                    require(canonicalFile.exists() && canonicalFile.isFile) {
+                        "GCS credentials file not found or invalid: ${gcsProps.credentialsPath} (resolved: ${canonicalFile.path})"
                     }
-                    val credentials = FileInputStream(credentialsFile).use { stream ->
+
+                    val credentials = FileInputStream(canonicalFile).use { stream ->
                         GoogleCredentials.fromStream(stream)
                     }
                     builder.setCredentials(credentials)

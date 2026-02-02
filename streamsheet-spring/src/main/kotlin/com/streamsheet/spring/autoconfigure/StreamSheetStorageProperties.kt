@@ -119,7 +119,19 @@ data class S3StorageProperties(
      * NOTE: SSRF 방지를 위해 프로덕션에서는 화이트리스트 검증을 권장합니다.
      * For SSRF prevention, whitelist validation is recommended in production.
      */
-    var endpoint: String? = null
+    var endpoint: String? = null,
+
+    /**
+     * 허용된 S3 엔드포인트 호스트 목록 (SSRF 방지용)
+     * List of allowed S3 endpoint hosts (for SSRF prevention)
+     *
+     * 예: ["minio.internal", "s3.custom-domain.com"]
+     * Example: ["minio.internal", "s3.custom-domain.com"]
+     *
+     * NOTE: 이 목록이 비어있지 않으면, endpoint 설정 시 호스트가 이 목록에 포함되어야 합니다.
+     * If this list is not empty, the endpoint host must be included in this list when configuring the endpoint.
+     */
+    var allowedEndpoints: List<String> = emptyList()
 )
 
 data class GcsStorageProperties(

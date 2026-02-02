@@ -129,4 +129,42 @@ class StreamSheetAutoConfigurationTest {
                     .isInstanceOf(com.streamsheet.spring.metrics.MicrometerStreamSheetMetrics::class.java)
             }
     }
+    @Test
+    @DisplayName("S3 엔드포인트가 화이트리스트에 없으면 애플리케이션 시작이 실패해야 한다")
+    fun `should fail to start when S3 endpoint is not in whitelist`() {
+        contextRunner
+            .withPropertyValues(
+                "streamsheet.storage.type=S3",
+                "streamsheet.storage.s3.bucket=test-bucket",
+                "streamsheet.storage.s3.endpoint=http://evil-site.com",
+                "streamsheet.storage.s3.allowed-endpoints=my-minio.internal,s3.trusted.com",
+                "streamsheet.storage.s3.region=us-east-1",
+                "streamsheet.storage.s3.access-key=test",
+                "streamsheet.storage.s3.secret-key=test"
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasRootCauseInstanceOf(IllegalArgumentException::class.java)
+                    .hasMessageContaining("S3 endpoint host 'evil-site.com' is not in the allowed list")
+            }
+    }
+
+    @Test
+    @DisplayName("S3 엔드포인트가 화이트리스트에 있으면 애플리케이션 시작이 성공해야 한다")
+    fun `should succeed when S3 endpoint is in whitelist`() {
+        contextRunner
+            .withPropertyValues(
+                "streamsheet.storage.type=S3",
+                "streamsheet.storage.s3.bucket=test-bucket",
+                "streamsheet.storage.s3.endpoint=http://my-minio.internal:9000",
+                "streamsheet.storage.s3.allowed-endpoints=my-minio.internal",
+                "streamsheet.storage.s3.region=us-east-1",
+                "streamsheet.storage.s3.access-key=test",
+                "streamsheet.storage.s3.secret-key=test"
+            )
+            .run { context ->
+                assertThat(context).hasSingleBean(software.amazon.awssdk.services.s3.S3Client::class.java)
+            }
+    }
 }
