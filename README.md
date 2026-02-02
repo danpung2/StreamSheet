@@ -39,20 +39,25 @@ You can define Excel schemas intuitively and easily using Kotlin DSL and Annotat
 
 ### 1. Add Dependencies
 
-**Gradle (Kotlin DSL)**
+**For Spring Boot (Recommended)**
 
 ```kotlin
 dependencies {
-    // Core (Required)
-    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
+    // Adding the Starter automatically includes the Core module.
+    implementation("io.github.danpung2:streamsheet-spring-boot-starter:0.0.1-SNAPSHOT")
     
     // Data Source Modules (Optional)
     implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")     // For JPA
-    implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")    // For JDBC
-    implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // For MongoDB
+    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")  // For JDBC
+    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // For MongoDB
+}
+```
 
-    // Spring Boot Starter (Recommended for Spring Boot)
-    implementation("io.github.danpung2:streamsheet-spring-boot-starter:0.0.1-SNAPSHOT")
+**For Standard Kotlin/Java Projects (Non-Spring Boot)**
+
+```kotlin
+dependencies {
+    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
 }
 ```
 

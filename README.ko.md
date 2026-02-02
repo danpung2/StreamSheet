@@ -39,20 +39,25 @@ Kotlin DSL과 어노테이션을 통해 엑셀 스키마를 직관적이고 간�
 
 ### 1. 의존성 추가
 
-**Gradle (Kotlin DSL)**
+**Spring Boot 사용 시 (권장)**
 
 ```kotlin
 dependencies {
-    // Core (필수)
-    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
-    
-    // 데이터 소스 모듈 (선택)
-    implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")     // JPA 사용 시
-    implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")    // JDBC 사용 시
-    implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // MongoDB 사용 시
-
-    // Spring Boot Starter (Spring Boot 사용 시 권장)
+    // Starter만 추가하면 Core 모듈이 자동으로 포함됩니다.
     implementation("io.github.danpung2:streamsheet-spring-boot-starter:0.0.1-SNAPSHOT")
+    
+    // 데이터 소스 모듈 (필요 시 선택)
+    implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")     // JPA 사용 시
+    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")  // JDBC 사용 시
+    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // MongoDB 사용 시
+}
+```
+
+**일반 Kotlin/Java 프로젝트 (Spring Boot 미사용)**
+
+```kotlin
+dependencies {
+    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
 }
 ```
 

@@ -1,12 +1,13 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm'
     id 'org.jetbrains.kotlin.plugin.spring'
+    id 'java-library'
 }
 
 dependencies {
     implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.2')
 
-    implementation project(':streamsheet-core')
+    api project(':streamsheet-core')
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
