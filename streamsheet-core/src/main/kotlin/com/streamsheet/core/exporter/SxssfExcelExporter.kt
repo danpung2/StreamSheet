@@ -85,13 +85,18 @@ class SxssfExcelExporter : ExcelExporter, ExcelExporterWithOptions {
 
             try {
                 options.cancellationToken.throwIfCancellationRequested()
-                options.progressListener.onProgress(
-                    ExportProgress(
-                        phase = ExportPhase.STARTING,
-                        rowsWritten = 0,
-                        batchesFlushed = 0,
+                // NOTE: 진행률 업데이트 중 예외가 발생해도 내보내기 작업은 계속 진행
+                try {
+                    options.progressListener.onProgress(
+                        ExportProgress(
+                            phase = ExportPhase.STARTING,
+                            rowsWritten = 0,
+                            batchesFlushed = 0,
+                        )
                     )
-                )
+                } catch (e: Exception) {
+                    logger.warn("Failed to update progress (STARTING): {}", e.message)
+                }
 
                 // NOTE: 시트 이름 안전화 (엑셀 금지 문자 및 길이 제한 처리)
                 val safeSheetName = WorkbookUtil.createSafeSheetName(schema.sheetName)
@@ -147,25 +152,33 @@ class SxssfExcelExporter : ExcelExporter, ExcelExporterWithOptions {
                         if (rowsWritten % config.flushBatchSize == 0L) {
                             sheet.flushRows(config.rowAccessWindowSize)
                             batchesFlushed++
-                            options.progressListener.onProgress(
-                                ExportProgress(
-                                    phase = ExportPhase.FLUSHED_BATCH,
-                                    rowsWritten = rowsWritten,
-                                    batchesFlushed = batchesFlushed,
+                            try {
+                                options.progressListener.onProgress(
+                                    ExportProgress(
+                                        phase = ExportPhase.FLUSHED_BATCH,
+                                        rowsWritten = rowsWritten,
+                                        batchesFlushed = batchesFlushed,
+                                    )
                                 )
-                            )
+                            } catch (e: Exception) {
+                                logger.warn("Failed to update progress (FLUSHED_BATCH): {}", e.message)
+                            }
                         }
                     }
 
                 // NOTE: 최종 출력
                 options.cancellationToken.throwIfCancellationRequested()
-                options.progressListener.onProgress(
-                    ExportProgress(
-                        phase = ExportPhase.WRITING_WORKBOOK,
-                        rowsWritten = (rowNum - 1).toLong(),
-                        batchesFlushed = batchesFlushed,
+                try {
+                    options.progressListener.onProgress(
+                        ExportProgress(
+                            phase = ExportPhase.WRITING_WORKBOOK,
+                            rowsWritten = (rowNum - 1).toLong(),
+                            batchesFlushed = batchesFlushed,
+                        )
                     )
-                )
+                } catch (e: Exception) {
+                    logger.warn("Failed to update progress (WRITING_WORKBOOK): {}", e.message)
+                }
                 workbook.write(output)
                 output.flush()
 
@@ -176,13 +189,17 @@ class SxssfExcelExporter : ExcelExporter, ExcelExporterWithOptions {
                     logger.info("Excel export completed: {} rows, {} ms", rowNum - 1, endTime - startTime)
                 }
 
-                options.progressListener.onProgress(
-                    ExportProgress(
-                        phase = ExportPhase.COMPLETED,
-                        rowsWritten = (rowNum - 1).toLong(),
-                        batchesFlushed = batchesFlushed,
+                try {
+                    options.progressListener.onProgress(
+                        ExportProgress(
+                            phase = ExportPhase.COMPLETED,
+                            rowsWritten = (rowNum - 1).toLong(),
+                            batchesFlushed = batchesFlushed,
+                        )
                     )
-                )
+                } catch (e: Exception) {
+                    logger.warn("Failed to update progress (COMPLETED): {}", e.message)
+                }
 
             } catch (e: Exception) {
                 if (config.enableMetrics) {
@@ -190,22 +207,28 @@ class SxssfExcelExporter : ExcelExporter, ExcelExporterWithOptions {
                     config.metrics.recordExportDurationMs(now - startTime, false)
                 }
 
-                if (e is com.streamsheet.core.cancel.ExportCancelledException) {
-                    options.progressListener.onProgress(
-                        ExportProgress(
-                            phase = ExportPhase.CANCELLED,
-                            rowsWritten = (rowNum - 1).toLong(),
-                            batchesFlushed = batchesFlushed,
+                // NOTE: 실패/취소 상태 전파는 중요하므로 일단 시도하되, 여기서도 실패하면 로깅만 수행
+                // Failure/Cancel propagation is important, but if it fails too, just log it.
+                try {
+                    if (e is com.streamsheet.core.cancel.ExportCancelledException) {
+                        options.progressListener.onProgress(
+                            ExportProgress(
+                                phase = ExportPhase.CANCELLED,
+                                rowsWritten = (rowNum - 1).toLong(),
+                                batchesFlushed = batchesFlushed,
+                            )
                         )
-                    )
-                } else {
-                    options.progressListener.onProgress(
-                        ExportProgress(
-                            phase = ExportPhase.FAILED,
-                            rowsWritten = (rowNum - 1).toLong(),
-                            batchesFlushed = batchesFlushed,
+                    } else {
+                        options.progressListener.onProgress(
+                            ExportProgress(
+                                phase = ExportPhase.FAILED,
+                                rowsWritten = (rowNum - 1).toLong(),
+                                batchesFlushed = batchesFlushed,
+                            )
                         )
-                    )
+                    }
+                } catch (listenerEx: Exception) {
+                    logger.warn("Failed to update progress (FAILED/CANCELLED): {}", listenerEx.message)
                 }
                 throw e
 
