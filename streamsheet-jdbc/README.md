@@ -51,6 +51,26 @@ fun exportData() {
 }
 ```
 
+### Retry Pattern
+
+It is recommended to use `Spring Retry` to handle transient database connection errors (e.g., network instability).
+However, retries are **not possible once streaming has started**. Apply retry logic only during the data source creation and query initialization phase.
+
+```kotlin
+@Service
+class ExportService {
+
+    @Retryable(
+        value = [TransientDataAccessException::class],
+        maxAttempts = 3,
+        backoff = Backoff(delay = 1000)
+    )
+    fun createDataSource(): JdbcStreamingDataSource<UserRow> {
+        return JdbcStreamingDataSource(...)
+    }
+}
+```
+
 ### Testing
 ```bash
 ./gradlew :streamsheet-jdbc:test

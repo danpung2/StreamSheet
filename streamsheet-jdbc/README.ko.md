@@ -52,6 +52,26 @@ fun exportData() {
 }
 ```
 
+### 재시도 패턴 (Retry Pattern)
+
+네트워크 불안정 등으로 인한 일시적인 데이터베이스 연결 오류를 처리하기 위해 `Spring Retry` 사용을 권장합니다.
+단, **이미 스트리밍이 시작된 이후**에는 재시도가 불가능하므로, 데이터 소스 생성 및 쿼리 시작 단계에서만 재시도 로직을 적용해야 합니다.
+
+```kotlin
+@Service
+class ExportService {
+
+    @Retryable(
+        value = [TransientDataAccessException::class],
+        maxAttempts = 3,
+        backoff = Backoff(delay = 1000)
+    )
+    fun createDataSource(): JdbcStreamingDataSource<UserRow> {
+        return JdbcStreamingDataSource(...)
+    }
+}
+```
+
 ### 테스트
 ```bash
 ./gradlew :streamsheet-jdbc:test
