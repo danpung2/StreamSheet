@@ -1,0 +1,26 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: streamsheet-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=streamsheet_demo
+    volumes:
+      - mongo-data:/data/db
+
+  postgres:
+    image: postgres:16
+    container_name: streamsheet-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=streamsheet_demo
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  mongo-data:
+  postgres-data:

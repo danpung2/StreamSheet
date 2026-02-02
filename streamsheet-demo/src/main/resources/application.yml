@@ -4,6 +4,19 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/streamsheet_demo
+  datasource:
+    url: jdbc:postgresql://localhost:5432/streamsheet_demo
+    username: user
+    password: password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
 
 streamsheet:
   row-access-window-size: 100

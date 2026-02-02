@@ -1,4 +1,4 @@
-package com.streamsheet.demo.domain
+package com.streamsheet.demo.domain.mongo
 
 import com.streamsheet.core.annotation.ExcelColumn
 import com.streamsheet.core.annotation.ExcelSheet
