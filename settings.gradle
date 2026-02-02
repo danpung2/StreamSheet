@@ -2,7 +2,7 @@ rootProject.name = 'stream-sheet'
 
 include 'streamsheet-core'
 include 'streamsheet-mongodb'
-include 'streamsheet-spring'
+include 'streamsheet-spring-boot-starter'
 include 'streamsheet-demo'
 include 'streamsheet-jdbc'
 include 'streamsheet-jpa'

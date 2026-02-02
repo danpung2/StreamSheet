@@ -8,7 +8,7 @@ plugins {
 dependencies {
     implementation project(':streamsheet-core')
     implementation project(':streamsheet-mongodb')
-    implementation project(':streamsheet-spring')
+    implementation project(':streamsheet-spring-boot-starter')
     
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
