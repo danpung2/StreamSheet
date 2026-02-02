@@ -32,7 +32,31 @@ class GcsFileStorage(
     }
 
     override fun delete(fileUri: URI) {
-        // Implement logic to parse bucket/blob from gs:// URI
-        logger.info("Delete requested for GCS URI: {}", fileUri)
+        if (fileUri.scheme != "gs") {
+            logger.warn("Invalid GCS URI scheme: {}", fileUri)
+            return
+        }
+
+        // URI format: gs://bucket-name/blob/path/to/file
+        val bucketName = fileUri.host
+        val blobName = fileUri.path.removePrefix("/")
+
+        if (bucketName.isNullOrBlank() || blobName.isBlank()) {
+            logger.warn("Invalid GCS URI format: {}", fileUri)
+            return
+        }
+
+        runCatching {
+            val blobId = BlobId.of(bucketName, blobName)
+            val deleted = storage.delete(blobId)
+            
+            if (deleted) {
+                logger.info("Deleted file from GCS: bucket={}, blob={}", bucketName, blobName)
+            } else {
+                logger.warn("File not found in GCS (delete skipped): bucket={}, blob={}", bucketName, blobName)
+            }
+        }.onFailure { e ->
+            logger.error("Failed to delete file from GCS: uri={}, error={}", fileUri, e.message, e)
+        }
     }
 }

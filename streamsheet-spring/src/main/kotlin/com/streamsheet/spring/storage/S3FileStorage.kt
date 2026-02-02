@@ -32,7 +32,27 @@ class S3FileStorage(
     }
 
     override fun delete(fileUri: URI) {
-        // Implement deletion logic parsing bucket/key from URI
-        logger.info("Delete requested for S3 URI: {}", fileUri)
+        if (fileUri.scheme != "s3") {
+            logger.warn("Invalid S3 URI scheme: {}", fileUri)
+            return
+        }
+
+        // URI format: s3://bucket-name/key/path/to/file
+        val bucketName = fileUri.host
+        val key = fileUri.path.removePrefix("/")
+
+        if (bucketName.isNullOrBlank() || key.isBlank()) {
+            logger.warn("Invalid S3 URI format: {}", fileUri)
+            return
+        }
+
+        runCatching {
+            s3Client.deleteObject { builder ->
+                builder.bucket(bucketName).key(key)
+            }
+            logger.info("Deleted file from S3: bucket={}, key={}", bucketName, key)
+        }.onFailure { e ->
+            logger.error("Failed to delete file from S3: uri={}, error={}", fileUri, e.message, e)
+        }
     }
 }
