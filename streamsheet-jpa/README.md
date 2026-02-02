@@ -27,6 +27,17 @@ JpaStreamingDataSource(...).use { dataSource ->
 }
 ```
 
+### Requirements & Caveats
+1. **Active Transaction Required**
+   - JPA streaming keeps a database cursor open.
+   - You MUST execute the export logic within an active transaction (e.g., `@Transactional(readOnly = true)`).
+   - If no transaction is active, the `Stream` may fail to open or close unexpectedly as the DB connection might be closed by the connection pool.
+
+2. **Lazy Loading with `detachEntities`**
+   - By default, `detachEntities` is set to `true` to optimize memory usage during large exports.
+   - This means entities are detached from the persistence context immediately after being read.
+   - **Warning**: Accessing uninitialized lazy-loaded fields will throw `LazyInitializationException`. Ensure you `JOIN FETCH` all necessary data in your query.
+
 ### Testing
 ```bash
 ./gradlew :streamsheet-jpa:test
