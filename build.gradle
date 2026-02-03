@@ -38,6 +38,7 @@ subprojects {
         finalizedBy jacocoTestReport
     }
 
+
     apply plugin: 'jacoco'
     jacoco {
         toolVersion = "0.8.11"
@@ -49,5 +50,17 @@ subprojects {
             html.required = true
         }
         dependsOn test
+    }
+
+    if (project.name != 'streamsheet-demo') {
+        apply plugin: 'maven-publish'
+
+        publishing {
+            publications {
+                mavenJava(MavenPublication) {
+                    from components.java
+                }
+            }
+        }
     }
 }
