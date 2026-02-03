@@ -102,6 +102,8 @@
             color: white;
             transition: background-color 0.2s;
             margin-bottom: 0.5rem;
+            box-sizing: border-box;
+            text-decoration: none;
         }
 
         .btn:hover {
@@ -275,7 +277,6 @@
                 </p>
                 <button id="btn-jdbc" class="btn" onclick="startExport('jdbc')">JDBC Export (Async)</button>
                 <a id="btn-jpa" href="/api/demo/jpa/export/download" class="btn btn-outline"
-                    style="text-decoration: none; display: flex; align-items: center; justify-content: center;"
                     onclick="return handleJpaExport(event)">JPA Export (Sync Download)</a>
             </div>
         </div>
