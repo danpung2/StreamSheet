@@ -3,12 +3,12 @@
 > Memory-efficient Streaming Excel Export SDK for Large-Scale Data
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-MIT-blue)]()
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 ## Overview
 
 StreamSheet is a high-performance Excel export library based on **Apache POI SXSSF**.
-It handle large datasets (hundreds of thousands of records) stably without OOM (OutOfMemory) errors and supports integration with various data sources (JPA, JDBC, MongoDB, etc.).
+It handles large datasets (hundreds of thousands of records) stably without OOM (OutOfMemory) errors and supports integration with various data sources (JPA, JDBC, MongoDB, etc.).
 You can define Excel schemas intuitively and easily using Kotlin DSL and Annotations.
 
 ## Key Features
@@ -44,12 +44,12 @@ You can define Excel schemas intuitively and easily using Kotlin DSL and Annotat
 ```kotlin
 dependencies {
     // Adding the Starter automatically includes the Core module.
-    implementation("io.github.danpung2:streamsheet-spring-boot-starter:0.0.1-SNAPSHOT")
+    implementation("io.github.danpung2:streamsheet-spring-boot-starter:1.0.0")
     
     // Data Source Modules (Optional)
-    implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")     // For JPA
-    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")  // For JDBC
-    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // For MongoDB
+    implementation("io.github.danpung2:streamsheet-jpa:1.0.0")     // For JPA
+    // implementation("io.github.danpung2:streamsheet-jdbc:1.0.0")  // For JDBC
+    // implementation("io.github.danpung2:streamsheet-mongodb:1.0.0") // For MongoDB
 }
 ```
 
@@ -57,12 +57,12 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
+    implementation("io.github.danpung2:streamsheet-core:1.0.0")
 
     // Data Source Modules (Optional)
-    // implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")
-    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")
-    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT")
+    // implementation("io.github.danpung2:streamsheet-jpa:1.0.0")
+    // implementation("io.github.danpung2:streamsheet-jdbc:1.0.0")
+    // implementation("io.github.danpung2:streamsheet-mongodb:1.0.0")
 }
 ```
 
@@ -205,4 +205,4 @@ This project uses the **Apache POI** library.
 
 ## License
 
-MIT License
+Apache License 2.0. See `LICENSE` and `NOTICE`.

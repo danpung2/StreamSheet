@@ -3,7 +3,7 @@
 > 대용량 데이터를 위한 메모리 효율적인 스트리밍 엑셀 내보내기 SDK
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-MIT-blue)]()
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 ## 개요
 
@@ -44,12 +44,12 @@ Kotlin DSL과 어노테이션을 통해 엑셀 스키마를 직관적이고 간�
 ```kotlin
 dependencies {
     // Starter만 추가하면 Core 모듈이 자동으로 포함됩니다.
-    implementation("io.github.danpung2:streamsheet-spring-boot-starter:0.0.1-SNAPSHOT")
+    implementation("io.github.danpung2:streamsheet-spring-boot-starter:1.0.0")
     
     // 데이터 소스 모듈 (필요 시 선택)
-    implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")     // JPA 사용 시
-    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")  // JDBC 사용 시
-    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT") // MongoDB 사용 시
+    implementation("io.github.danpung2:streamsheet-jpa:1.0.0")     // JPA 사용 시
+    // implementation("io.github.danpung2:streamsheet-jdbc:1.0.0")  // JDBC 사용 시
+    // implementation("io.github.danpung2:streamsheet-mongodb:1.0.0") // MongoDB 사용 시
 }
 ```
 
@@ -57,12 +57,12 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("io.github.danpung2:streamsheet-core:0.0.1-SNAPSHOT")
+    implementation("io.github.danpung2:streamsheet-core:1.0.0")
 
     // 데이터 소스 모듈 (필요 시 선택)
-    // implementation("io.github.danpung2:streamsheet-jpa:0.0.1-SNAPSHOT")
-    // implementation("io.github.danpung2:streamsheet-jdbc:0.0.1-SNAPSHOT")
-    // implementation("io.github.danpung2:streamsheet-mongodb:0.0.1-SNAPSHOT")
+    // implementation("io.github.danpung2:streamsheet-jpa:1.0.0")
+    // implementation("io.github.danpung2:streamsheet-jdbc:1.0.0")
+    // implementation("io.github.danpung2:streamsheet-mongodb:1.0.0")
 }
 ```
 
@@ -205,4 +205,4 @@ val config = ExcelExportConfig(
 
 ## 라이선스
 
-MIT License
+Apache License 2.0. `LICENSE`, `NOTICE`를 참고하세요.
