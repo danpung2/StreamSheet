@@ -2,6 +2,8 @@
 
 A comprehensive demo application showcasing StreamSheet's high-performance Excel export capabilities with various data sources.
 
+See also: `../README.md`
+
 ## Features
 
 - **Web Dashboard**: Interactive UI to trigger exports and monitor job progress
@@ -113,3 +115,7 @@ streamsheet:
       base-url: http://localhost:8080/api/streamsheet/download
   retention-hours: 1             # Auto-cleanup after 1 hour
 ```
+
+## License
+
+Apache License 2.0. See `../LICENSE` and `../NOTICE`.

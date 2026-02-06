@@ -2,6 +2,8 @@
 
 다양한 데이터 소스를 활용한 StreamSheet의 고성능 엑셀 내보내기 기능을 시연하는 종합 데모 애플리케이션입니다.
 
+참고: `../README.ko.md`
+
 ## 주요 기능
 
 - **웹 대시보드**: 내보내기 실행 및 작업 진행 상황을 모니터링할 수 있는 대화형 UI
@@ -113,3 +115,7 @@ streamsheet:
       base-url: http://localhost:8080/api/streamsheet/download
   retention-hours: 1             # 1시간 후 자동 정리
 ```
+
+## 라이선스
+
+Apache License 2.0. `../LICENSE`, `../NOTICE`를 참고하세요.

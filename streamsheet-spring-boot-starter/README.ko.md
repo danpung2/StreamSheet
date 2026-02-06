@@ -2,10 +2,12 @@
 
 StreamSheet Spring Boot 연동 모듈입니다(자동 설정, 비동기 내보내기, 스토리지, 다운로드 REST 엔드포인트).
 
+참고: `../README.ko.md`
+
 ### 설치
 ```gradle
 dependencies {
-  implementation("com.streamsheet:streamsheet-spring-boot-starter:<version>")
+  implementation("io.github.danpung2:streamsheet-spring-boot-starter:1.0.0")
 }
 ```
 
@@ -35,3 +37,6 @@ fun streamSheetFilterChain(http: HttpSecurity): SecurityFilterChain {
 ```bash
 ./gradlew :streamsheet-spring-boot-starter:test
 ```
+
+### 라이선스
+Apache License 2.0. `../LICENSE`, `../NOTICE`를 참고하세요.

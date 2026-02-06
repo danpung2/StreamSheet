@@ -2,10 +2,12 @@
 
 StreamSheet JPA 스트리밍 데이터소스 모듈입니다.
 
+참고: `../README.ko.md`
+
 ### 설치
 ```gradle
 dependencies {
-  implementation("com.streamsheet:streamsheet-jpa:<version>")
+  implementation("io.github.danpung2:streamsheet-jpa:1.0.0")
 }
 ```
 
@@ -43,3 +45,6 @@ JpaStreamingDataSource(...).use { dataSource ->
 ```bash
 ./gradlew :streamsheet-jpa:test
 ```
+
+### 라이선스
+Apache License 2.0. `../LICENSE`, `../NOTICE`를 참고하세요.

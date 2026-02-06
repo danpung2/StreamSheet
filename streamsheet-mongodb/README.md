@@ -2,10 +2,12 @@
 
 MongoDB streaming datasource module for StreamSheet.
 
+See also: `../README.md`
+
 ### Installation
 ```gradle
 dependencies {
-  implementation("com.streamsheet:streamsheet-mongodb:<version>")
+  implementation("io.github.danpung2:streamsheet-mongodb:1.0.0")
 }
 ```
 
@@ -31,3 +33,6 @@ MongoStreamingDataSource(...).use { dataSource ->
 ```bash
 ./gradlew :streamsheet-mongodb:test
 ```
+
+### License
+Apache License 2.0. See `../LICENSE` and `../NOTICE`.

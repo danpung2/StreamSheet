@@ -2,10 +2,12 @@
 
 StreamSheet JDBC 스트리밍 데이터소스 모듈입니다.
 
+참고: `../README.ko.md`
+
 ### 설치
 ```gradle
 dependencies {
-  implementation("com.streamsheet:streamsheet-jdbc:<version>")
+  implementation("io.github.danpung2:streamsheet-jdbc:1.0.0")
 }
 ```
 
@@ -76,3 +78,6 @@ class ExportService {
 ```bash
 ./gradlew :streamsheet-jdbc:test
 ```
+
+### 라이선스
+Apache License 2.0. `../LICENSE`, `../NOTICE`를 참고하세요.

@@ -2,6 +2,8 @@
 
 StreamSheet의 핵심(Core) 모듈입니다.
 
+참고: `../README.ko.md`
+
 ### 주요 기능
 - Apache POI SXSSF 기반 스트리밍 Excel 내보내기
 - 스키마 정의(어노테이션 기반 / DSL 기반)
@@ -12,7 +14,7 @@ Gradle:
 
 ```gradle
 dependencies {
-  implementation("com.streamsheet:streamsheet-core:<version>")
+  implementation("io.github.danpung2:streamsheet-core:1.0.0")
 }
 ```
 
@@ -34,3 +36,6 @@ SxssfExcelExporter().export(schema, dataSource, outputStream)
 ```bash
 ./gradlew :streamsheet-core:test
 ```
+
+### 라이선스
+Apache License 2.0. `../LICENSE`, `../NOTICE`를 참고하세요.

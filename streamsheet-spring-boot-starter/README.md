@@ -2,10 +2,12 @@
 
 Spring Boot integration for StreamSheet (auto-configuration, async export, storage, REST download endpoint).
 
+See also: `../README.md`
+
 ### Installation
 ```gradle
 dependencies {
-  implementation("com.streamsheet:streamsheet-spring-boot-starter:<version>")
+  implementation("io.github.danpung2:streamsheet-spring-boot-starter:1.0.0")
 }
 ```
 
@@ -35,3 +37,6 @@ fun streamSheetFilterChain(http: HttpSecurity): SecurityFilterChain {
 ```bash
 ./gradlew :streamsheet-spring-boot-starter:test
 ```
+
+### License
+Apache License 2.0. See `../LICENSE` and `../NOTICE`.
