@@ -35,6 +35,10 @@ Kotlin DSL과 어노테이션을 통해 엑셀 스키마를 직관적이고 간�
 | `streamsheet-mongodb` | MongoDB 데이터 소스 지원 |
 | `streamsheet-spring-boot-starter` | Spring Boot 자동 설정 및 편의 기능 |
 
+## 데모 프로젝트
+
+실행 가능한 예제는 다음 저장소를 참고하세요: [StreamSheetDemo-PG](https://github.com/danpung2/StreamSheetDemo-PG)
+
 ## 빠른 시작 (Quick Start)
 
 ### 1. 의존성 추가

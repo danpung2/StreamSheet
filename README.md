@@ -35,6 +35,10 @@ You can define Excel schemas intuitively and easily using Kotlin DSL and Annotat
 | `streamsheet-mongodb` | MongoDB data source support |
 | `streamsheet-spring-boot-starter` | Spring Boot auto-configuration and conveniences |
 
+## Demo Project
+
+For an end-to-end, runnable example, see: [StreamSheetDemo-PG](https://github.com/danpung2/StreamSheetDemo-PG)
+
 ## Quick Start
 
 ### 1. Add Dependencies
